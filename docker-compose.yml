@@ -1,0 +1,14 @@
+version: "2.4"
+
+services:
+
+  autoscaler:
+    build: autoscaler
+    container_name: autoscaler
+    cpuset: '0'
+    cpus: 0.5
+    restart: always
+    environment:
+      REQUEST_THRESHOLD: ${REQUEST_THRESHOLD}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
