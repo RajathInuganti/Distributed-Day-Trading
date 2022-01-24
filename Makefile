@@ -1,4 +1,4 @@
-application:
+build:
 	@docker-compose up --build
 
 clean:
