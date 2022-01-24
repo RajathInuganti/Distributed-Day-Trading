@@ -6,9 +6,13 @@ services:
     build: autoscaler
     container_name: autoscaler
     cpuset: '0'
-    cpus: 0.1
+    cpus: 0.2
     restart: always
     environment:
-      REQUEST_THRESHOLD: ${REQUEST_THRESHOLD}
+      AUTOSCALER_CHECK_PERIOD: ${AUTOSCALER_CHECK_PERIOD}
+      CPU_LOWER_THRESHOLD: ${CPU_LOWER_THRESHOLD}
+      CPU_UPPER_THRESHOLD: ${CPU_UPPER_THRESHOLD}
+      MAX_WORKERS: ${MAX_WORKERS}
+      MIN_WORKERS: ${MIN_WORKERS}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
