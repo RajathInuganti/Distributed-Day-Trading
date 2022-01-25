@@ -1,26 +1,70 @@
 package main
 
 import (
-	"errors"
-	"fmt"
-	"log"
+	"context"
 	"os"
 	"strconv"
-	"time"
+	"strings"
+	"sync"
+
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 )
+
+var WorkerRecord map[string]bool
+
+func updateRecord(containerID string, m *sync.Mutex, active bool) {
+	m.Lock()
+	WorkerRecord[containerID] = active
+	m.Unlock()
+}
 
 func main() {
 
-	periodStr, ok := os.LookupEnv("AUTOSCALER_CHECK_PERIOD")
+	envs := Envs{}
+	setup(&envs)
+	WorkerRecord = make(map[string]bool)
 
-	if !ok {
-		error := errors.New("autoscaler check period environment varible not set")
-		log.Fatal(error)
+	var wg sync.WaitGroup
+	var m sync.Mutex
+
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		panic(err)
 	}
 
-	period, _ := strconv.Atoi(periodStr)
-
-	for t := range time.NewTicker(time.Duration(period) * time.Second).C {
-		fmt.Printf("Hello from Autoscaler at time %s", t)
+	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{})
+	if err != nil {
+		panic(err)
 	}
+
+	for _, container := range containers {
+		updateRecord(container.ID, &m, true)
+		wg.Add(1)
+		go monitor(ctx, cli, container.ID, envs, &wg)
+	}
+
+	wg.Wait()
+}
+
+func setup(envs *Envs) {
+
+	envMap := make(map[string]int)
+
+	for _, env := range os.Environ() {
+
+		envPair := strings.Split(env, "=")
+		value, _ := strconv.Atoi(envPair[1])
+		envMap[envPair[0]] = value
+
+	}
+
+	envs.cpu = envMap["CPU_ALLOCATION"]
+	envs.period = envMap["AUTOSCALER_CHECK_PERIOD"]
+	envs.cpuLower = envMap["CPU_LOWER_THRESHOLD"]
+	envs.cpuUpper = envMap["CPU_UPPER_THRESHOLD"]
+	envs.maxWorkers = envMap["MAX_WORKERS"]
+	envs.minWorkers = envMap["MIN_WORKERS"]
+
 }
