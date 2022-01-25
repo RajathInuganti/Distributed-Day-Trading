@@ -6,10 +6,11 @@ services:
     build: autoscaler
     container_name: autoscaler
     cpuset: '0'
-    cpus: 0.2
+    cpus: 0.05
     restart: always
     environment:
       AUTOSCALER_CHECK_PERIOD: ${AUTOSCALER_CHECK_PERIOD}
+      CPU_ALLOCATION: ${CPU_ALLOCATION}
       CPU_LOWER_THRESHOLD: ${CPU_LOWER_THRESHOLD}
       CPU_UPPER_THRESHOLD: ${CPU_UPPER_THRESHOLD}
       MAX_WORKERS: ${MAX_WORKERS}
