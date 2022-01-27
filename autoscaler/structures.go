@@ -11,6 +11,11 @@ type Envs struct {
 	minWorkers int
 }
 
+type ContainerDetail struct {
+	startContainer bool
+	containerName  string
+}
+
 type DockerContainerStats struct {
 	Read      time.Time `json:"read"`
 	Preread   time.Time `json:"preread"`

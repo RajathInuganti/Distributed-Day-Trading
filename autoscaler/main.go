@@ -5,49 +5,22 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 )
 
-var RunningWorkerRecord []string
+var RunningWorkerRecord map[string]bool
 var StoppedWorkerRecord []string
-
-func updateWorkerRecords(activate bool) string {
-
-	var container string
-
-	if activate {
-		container, StoppedWorkerRecord = StoppedWorkerRecord[0], StoppedWorkerRecord[1:]
-		RunningWorkerRecord = append(RunningWorkerRecord, container)
-		return container
-	}
-
-	container, RunningWorkerRecord = RunningWorkerRecord[0], RunningWorkerRecord[1:]
-	StoppedWorkerRecord = append(StoppedWorkerRecord, container)
-	return container
-}
-
-func createContainers(ctx context.Context, cli *client.Client, envs Envs) []string {
-
-	containers := make([]string, envs.maxWorkers)
-	for i := 0; i < envs.maxWorkers; i++ {
-		// Create the maximum number of containers allowed. Start and stop them as necessary
-		// Yet to be implemented as the transaction worker needs to be implemented as well
-	}
-	return containers
-}
 
 func main() {
 
 	envs := Envs{}
 	setup(&envs)
-	RunningWorkerRecord = make([]string, envs.maxWorkers)
-	StoppedWorkerRecord = make([]string, envs.maxWorkers)
 
-	var wg sync.WaitGroup
-	var m sync.Mutex
+	RunningWorkerRecord = make(map[string]bool, envs.maxWorkers)
+	StoppedWorkerRecord = make([]string, envs.maxWorkers)
+	updates := make(chan ContainerDetail)
 
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -63,11 +36,13 @@ func main() {
 	}
 
 	for _, container := range containers {
-		wg.Add(envs.minWorkers)
-		go monitor(ctx, cli, container.ID, envs, &wg, &m)
+		go monitor(ctx, cli, container.ID, envs, updates)
 	}
 
-	wg.Wait()
+	for {
+		update := <-updates
+		updateWorkerRecords(ctx, cli, envs, update.containerName, update.startContainer, updates)
+	}
 }
 
 func setup(envs *Envs) {
