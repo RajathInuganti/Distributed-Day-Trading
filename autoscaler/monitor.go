@@ -8,10 +8,40 @@ import (
 	"sync"
 	"time"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 )
 
-func monitor(ctx context.Context, cli *client.Client, ID string, envs Envs, wg *sync.WaitGroup) {
+func updateStoppedOrRunningContainer(ctx context.Context, cli *client.Client, envs Envs, wg *sync.WaitGroup, m *sync.Mutex, activate bool) {
+
+	m.Lock()
+	if activate {
+
+		if len(RunningWorkerRecord) < envs.maxWorkers {
+			log.Printf("CPU Threshold exceeded. Starting up worker.")
+
+			containerID := updateWorkerRecords(true)
+			if err := cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{}); err != nil {
+				panic(err)
+			}
+			wg.Add(envs.minWorkers)
+			go monitor(ctx, cli, containerID, envs, wg, m)
+		}
+		return
+	}
+
+	if len(RunningWorkerRecord) > envs.minWorkers {
+		log.Printf("CPU Utilization at below normal containers. Stopping worker.")
+
+		containerID := updateWorkerRecords(false)
+		if err := cli.ContainerStop(ctx, containerID, nil); err != nil {
+			panic(err)
+		}
+	}
+	m.Unlock()
+}
+
+func monitor(ctx context.Context, cli *client.Client, ID string, envs Envs, wg *sync.WaitGroup, m *sync.Mutex) {
 
 	stats := new(DockerContainerStats)
 
@@ -36,16 +66,20 @@ func monitor(ctx context.Context, cli *client.Client, ID string, envs Envs, wg *
 		numberCpus := float32(stats.CPUStats.OnlineCpus)
 		CPUUsage := (float32(cpuDelta) / float32(systemCpuDelta)) * numberCpus * 100.0
 
-		if CPUUsageActual := (CPUUsage / float32(envs.cpu)) * 100.0; CPUUsageActual > float32(envs.cpuUpper) {
+		if cpuDelta == 0 {
+			break
+		}
 
-			if len(WorkerRecord) < envs.maxWorkers {
-				log.Printf("CPU Threshold exceeded. Starting up new worker.")
-			}
+		CPUUsageActual := (CPUUsage / float32(envs.cpu)) * 100.0
+		if CPUUsageActual > float32(envs.cpuUpper) {
+			updateStoppedOrRunningContainer(ctx, cli, envs, wg, m, true)
 			continue
 		}
 
-		log.Printf("CPU Utilization at normal levels.")
-
+		if CPUUsageActual < float32(envs.cpuLower) {
+			updateStoppedOrRunningContainer(ctx, cli, envs, wg, m, false)
+			continue
+		}
 	}
 
 	wg.Done()
