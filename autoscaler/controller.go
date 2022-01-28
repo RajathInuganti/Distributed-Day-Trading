@@ -31,8 +31,8 @@ func updateWorkerRecords(ctx context.Context, cli *client.Client, envs Envs, con
 	}
 
 	if len(StoppedWorkerRecord) > envs.minWorkers {
-		delete(RunningWorkerRecord, ID)
-		StoppedWorkerRecord = append(StoppedWorkerRecord, ID)
+		delete(RunningWorkerRecord, container)
+		StoppedWorkerRecord = append(StoppedWorkerRecord, container)
 		stopContainer(ctx, cli, container)
 	}
 }

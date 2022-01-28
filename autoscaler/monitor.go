@@ -55,8 +55,8 @@ func monitor(ctx context.Context, cli *client.Client, ID string, envs Envs, upda
 			update.startContainer = false
 			update.containerName = ID
 			updates <- update
-
 			continue
+
 		}
 	}
 }
