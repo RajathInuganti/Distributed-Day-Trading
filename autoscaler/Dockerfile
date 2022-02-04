@@ -11,6 +11,9 @@ WORKDIR /src
 
 COPY . .
 
+# Initializing go.mod file for dependancy management & tracking.
+RUN go mod init autoscaler
+
 # Fetching dependencies.
 RUN go get -d -v
 

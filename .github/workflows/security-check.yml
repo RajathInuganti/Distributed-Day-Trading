@@ -1,11 +1,10 @@
 name: Security Scan - Gosec
+
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
+
 jobs:
   tests:
     runs-on: ubuntu-latest
