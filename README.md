@@ -1,2 +1,2 @@
 # SENG468
-Course project for SENG 468
+UVic course project for SENG 468
