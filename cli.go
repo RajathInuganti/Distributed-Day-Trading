@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -63,8 +64,8 @@ func main() {
 		panic("Unexpected number of arguments")
 	}
 
-	commandsFile := os.Args[1]
-	data, err := os.ReadFile("./" + commandsFile)
+	commandsFilePath := os.Args[1]
+	data, err := os.ReadFile(filepath.Clean(commandsFilePath))
 	checkError(err, "Error while reading")
 	
 	lines := strings.Split(string(data), "\n")
