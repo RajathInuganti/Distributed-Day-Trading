@@ -64,7 +64,8 @@ func consume(ch *amqp.Channel) {
 				})
 			failOnError("Failed to publish a message", err)
 
-			d.Ack(false)
+			err := d.Ack(false)
+			failOnError("Failed to Acknowledge message", err)
 		}
 	}()
 
@@ -82,13 +83,11 @@ func setup() *amqp.Channel {
 	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq")
 	if err != nil {
 		log.Fatalf("Failed to connect to RabbitMQ: %s", err)
-		conn.Close()
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
 		log.Fatalf("Failed to open a channel: %s", err)
-		ch.Close()
 	}
 
 	return ch

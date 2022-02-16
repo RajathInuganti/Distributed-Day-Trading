@@ -17,7 +17,10 @@ type commandHandler struct {
 
 func (c commandHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	if request.Method == "POST" {
-		request.ParseForm()
+
+		err := request.ParseForm()
+		failOnError("Error while Parsing POST request form", err)
+
 		command := request.Form.Get("command")
 		txNum := request.Form.Get("txNum")
 
@@ -26,7 +29,7 @@ func (c commandHandler) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 }
 
 func Publish(ch *amqp.Channel, queue string, command string, txNum string) {
-	if err := ch.Publish(
+	err := ch.Publish(
 		"",
 		"rpc_queue",
 		false,
@@ -36,9 +39,8 @@ func Publish(ch *amqp.Channel, queue string, command string, txNum string) {
 			CorrelationId: txNum,
 			ReplyTo:       queue,
 			Body:          []byte(command),
-		}); err != nil {
-		log.Fatalf("Failed to publish a message: %s", err)
-	}
+		})
+	failOnError("Failed to publish a message", err)
 }
 
 func startQueueService(ch *amqp.Channel, queue string, responses *map[string]string) {
@@ -51,10 +53,7 @@ func startQueueService(ch *amqp.Channel, queue string, responses *map[string]str
 		false, // noWait
 		nil,   // arguments
 	)
-
-	if err != nil {
-		log.Fatalf("Failed to declare a queue: %s", err)
-	}
+	failOnError("Failed to declare a queue", err)
 
 	messages, err := ch.Consume(
 		q.Name, // queue
@@ -65,10 +64,7 @@ func startQueueService(ch *amqp.Channel, queue string, responses *map[string]str
 		false,  // no-wait
 		nil,    // args
 	)
-
-	if err != nil {
-		log.Fatalf("Failed to register a consumer: %s", err)
-	}
+	failOnError("Failed to register a consumer", err)
 
 	for message := range messages {
 		messageJSON := string(message.Body)
@@ -90,7 +86,7 @@ func main() {
 	log.Println("Starting server")
 
 	http.Handle("/transaction", handler)
-	http.ListenAndServe("localhost:8080", nil)
+	log.Fatal(http.ListenAndServe("localhost:8080", nil))
 
 }
 
@@ -99,14 +95,18 @@ func setupChannel() *amqp.Channel {
 	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq")
 	if err != nil {
 		log.Fatalf("Failed to connect to RabbitMQ: %s", err)
-		conn.Close()
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
 		log.Fatalf("Failed to open a channel: %s", err)
-		ch.Close()
 	}
 
 	return ch
+}
+
+func failOnError(message string, err error) {
+	if err != nil {
+		log.Fatalf("%s: %s", message, err)
+	}
 }
