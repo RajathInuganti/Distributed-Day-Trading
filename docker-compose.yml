@@ -1,19 +1,51 @@
-version: "2.4"
+version: "3.8"
 
 services:
 
-  autoscaler:
-    build: autoscaler
-    container_name: autoscaler
-    cpuset: '0'
-    cpus: 0.05
+  # autoscaler:
+  #   build: autoscaler
+  #   container_name: autoscaler
+  #   restart: always
+  #   environment:
+  #     AUTOSCALER_CHECK_PERIOD: ${AUTOSCALER_CHECK_PERIOD}
+  #     CPU_ALLOCATION: ${CPU_ALLOCATION}
+  #     CPU_LOWER_THRESHOLD: ${CPU_LOWER_THRESHOLD}
+  #     CPU_UPPER_THRESHOLD: ${CPU_UPPER_THRESHOLD}
+  #     MAX_WORKERS: ${MAX_WORKERS}
+  #     MIN_WORKERS: ${MIN_WORKERS}
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+
+  txserver:
+    build: txserver
+    container_name: txserver
     restart: always
-    environment:
-      AUTOSCALER_CHECK_PERIOD: ${AUTOSCALER_CHECK_PERIOD}
-      CPU_ALLOCATION: ${CPU_ALLOCATION}
-      CPU_LOWER_THRESHOLD: ${CPU_LOWER_THRESHOLD}
-      CPU_UPPER_THRESHOLD: ${CPU_UPPER_THRESHOLD}
-      MAX_WORKERS: ${MAX_WORKERS}
-      MIN_WORKERS: ${MIN_WORKERS}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - rabbitmq
+    networks:
+      - txnetwork
+  
+  webserver:
+    build: webserver
+    container_name: webserver
+    restart: always
+    depends_on:
+      - rabbitmq
+    networks:
+      - txnetwork
+  
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - 5672:5672
+      - 15672:15672
+    networks:
+      - txnetwork
+  
+# the network's driver needs to be changed to 
+# overlay when we run it on AWS in swarm mode.
+networks:
+  txnetwork:
+    driver: bridge

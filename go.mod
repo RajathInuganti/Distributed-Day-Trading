@@ -2,7 +2,10 @@ module day-trading
 
 go 1.17
 
-require github.com/docker/docker v20.10.12+incompatible
+require (
+	github.com/docker/docker v20.10.12+incompatible
+	github.com/streadway/amqp v1.0.0
+)
 
 require (
 	github.com/Microsoft/go-winio v0.4.17 // indirect
