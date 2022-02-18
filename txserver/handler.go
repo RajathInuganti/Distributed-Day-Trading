@@ -34,23 +34,6 @@ var handlerMap = map[string]func(*Command){
 	"DUMPLOG":          dumplog,
 }
 
-//Use for testing on UVic machine
-func callQuery() {
-	connection_string := CONN_HOST + strconv.Itoa(CONN_PORT)
-	c, err := net.Dial("tcp", connection_string)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	_, err = c.Write([]byte("BKM Warlock"))
-
-	result, err := ioutil.ReadAll(c)
-
-	fmt.Println(string(result))
-
-}
-
 func add(command *Command) {
 
 }
@@ -118,5 +101,22 @@ func dumplog(command *Command) {
 func handle(command *Command) {
 
 	handlerMap[command.Command](command)
+
+}
+
+//Use for testing on UVic machine
+func callQuery() {
+	connection_string := CONN_HOST + strconv.Itoa(CONN_PORT)
+	c, err := net.Dial("tcp", connection_string)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	_, err = c.Write([]byte("BKM Warlock"))
+
+	result, err := ioutil.ReadAll(c)
+
+	fmt.Println(string(result))
 
 }
