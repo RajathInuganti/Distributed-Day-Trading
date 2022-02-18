@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -86,11 +89,13 @@ func main() {
 
 		fmt.Printf("iteration: %d requestData: %#v\n", i+1, requestData)
 
-		// parsedJson, err := json.Marshal(requestData)
-		// checkError(err, "Couldn't parse golang struct to JSON")
+		parsedJson, err := json.Marshal(requestData)
+		checkError(err, "Couldn't parse golang struct to JSON")
 
-		// _, err = http.Post("http://localhost:8080/", "application/json", bytes.NewBuffer(parsedJson))
-		// checkError(err, "Got error while doing a post request")
+		res, err := http.Post("http://localhost:8080/", "application/json", bytes.NewBuffer(parsedJson))
+		checkError(err, "Got error while doing a post request")
+		
+		fmt.Printf("Got response code: %v\n", res.StatusCode)
 	}
 
 }
