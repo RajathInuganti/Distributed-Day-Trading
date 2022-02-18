@@ -1,18 +1,27 @@
 package main
 
 import (
-	"log"
 	"context"
+	"encoding/json"
+	"log"
 
 	"github.com/streadway/amqp"
 
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 var collection *mongo.Collection
+
+type Command struct {
+	Command  string `json:"Command"`
+	Username string `json:"Username"`
+	Amount   string `json:"Amount"`
+	Stock    string `json:"Stock"`
+	Filename string `json:"Filename"`
+}
 
 func failOnError(message string, err error) {
 	if err != nil {
@@ -21,6 +30,8 @@ func failOnError(message string, err error) {
 }
 
 func consume(ch *amqp.Channel) {
+
+	command := new(Command)
 
 	q, err := ch.QueueDeclare(
 		"rpc_queue", // name
@@ -39,7 +50,7 @@ func consume(ch *amqp.Channel) {
 	)
 	failOnError("Failed to set QoS", err)
 
-	msgs, err := ch.Consume(
+	messages, err := ch.Consume(
 		q.Name, // queue
 		"",     // consumer
 		false,  // auto-ack
@@ -53,27 +64,29 @@ func consume(ch *amqp.Channel) {
 	forever := make(chan bool)
 
 	go func() {
-		for d := range msgs {
-			command := string(d.Body)
-			failOnError("Failed to convert body to integer", err)
+		for message := range messages {
+			err := json.Unmarshal(message.Body, &command)
+			failOnError("Failed to unmarshal message body", err)
 
-			log.Printf("Received command: %s", command)
 			// need to called handler from here to handle the various commands
-			//parseStruct()
+			handle(command)
+
+			msgBody, err := json.Marshal(command)
+			failOnError("Failed to marshal message body", err)
 
 			err = ch.Publish(
-				"",        // exchange
-				d.ReplyTo, // routing key
-				false,     // mandatory
-				false,     // immediate
+				"",              // exchange
+				message.ReplyTo, // routing key
+				false,           // mandatory
+				false,           // immediate
 				amqp.Publishing{
 					ContentType:   "text/plain",
-					CorrelationId: d.CorrelationId,
-					Body:          []byte(command),
+					CorrelationId: message.CorrelationId,
+					Body:          msgBody,
 				})
 			failOnError("Failed to publish a message", err)
 
-			err := d.Ack(false)
+			err = message.Ack(false)
 			failOnError("Failed to Acknowledge message", err)
 		}
 	}()
@@ -86,7 +99,7 @@ func consume(ch *amqp.Channel) {
 func main() {
 	ch := setup()
 	setupDB()
-	//addtoDb //For testing purposes 
+	//addtoDb //For testing purposes
 	consume(ch)
 }
 
@@ -107,7 +120,7 @@ func addtoDB() {
 func setupDB() {
 
 	const uri = "mongodb://mongodb_container:27017/?maxPoolSize=20&w=majority"
-	var client, err = mongo.Connect(context.TODO(), options.Client().ApplyURI(uri))	
+	var client, err = mongo.Connect(context.TODO(), options.Client().ApplyURI(uri))
 
 	if err != nil {
 		panic(err)
