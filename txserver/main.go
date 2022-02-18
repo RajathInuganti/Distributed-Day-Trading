@@ -2,9 +2,17 @@ package main
 
 import (
 	"log"
+	"context"
 
 	"github.com/streadway/amqp"
+
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
+
+var collection *mongo.Collection
 
 func failOnError(message string, err error) {
 	if err != nil {
@@ -51,6 +59,7 @@ func consume(ch *amqp.Channel) {
 
 			log.Printf("Received command: %s", command)
 			// need to called handler from here to handle the various commands
+			//parseStruct()
 
 			err = ch.Publish(
 				"",        // exchange
@@ -76,7 +85,48 @@ func consume(ch *amqp.Channel) {
 
 func main() {
 	ch := setup()
+	setupDB()
+	//addtoDb //For testing purposes 
 	consume(ch)
+}
+
+//testing purposes
+func addtoDB() {
+
+	doc := bson.D{{"user", "sadfd23sfds"}, {"account_balance", "98742"}}
+
+	result, err := collection.InsertOne(context.TODO(), doc)
+
+	if err != nil {
+		panic(err)
+	}
+
+	log.Printf("Inserted document with _id: %v\n", result.InsertedID)
+}
+
+func setupDB() {
+
+	const uri = "mongodb://mongodb_container:27017/?maxPoolSize=20&w=majority"
+	var client, err = mongo.Connect(context.TODO(), options.Client().ApplyURI(uri))	
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer func() {
+		if err = client.Disconnect(context.TODO()); err != nil {
+			panic(err)
+		}
+	}()
+
+	if err := client.Ping(context.TODO(), readpref.Primary()); err != nil {
+		panic(err)
+	}
+
+	log.Printf("Successfully connected and pinged.")
+
+	collection = client.Database("test").Collection("transactions")
+
 }
 
 func setup() *amqp.Channel {
