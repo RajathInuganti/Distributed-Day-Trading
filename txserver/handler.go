@@ -15,21 +15,23 @@ const (
 	CONN_PORT = 4444
 )
 
-//Use for testing on UVic machine
-func callQuery() {
-	connection_string := CONN_HOST + strconv.Itoa(CONN_PORT)
-	c, err := net.Dial("tcp", connection_string)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	_, err = c.Write([]byte("BKM Warlock"))
-
-	result, err := ioutil.ReadAll(c)
-
-	fmt.Println(string(result))
-
+var handlerMap = map[string]func(*Command){
+	"ADD":              add,
+	"COMMIT_BUY":       commit_buy,
+	"CANCEL_BUY":       cancel_buy,
+	"COMMIT_SELL":      commit_sell,
+	"CANCEL_SELL":      cancel_sell,
+	"DISPLAY_SUMMARY":  display_summary,
+	"BUY":              buy,
+	"SELL":             sell,
+	"SET_BUY_AMOUNT":   set_buy_amount,
+	"SET_BUY_TRIGGER":  set_buy_trigger,
+	"SET_SELL_AMOUNT":  set_sell_amount,
+	"SET_SELL_TRIGGER": set_sell_trigger,
+	"QUOTE":            quote,
+	"CANCEL_SET_BUY":   cancel_set_buy,
+	"CANCEL_SET_SELL":  cancel_set_sell,
+	"DUMPLOG":          dumplog,
 }
 
 func add(command *Command) {
@@ -98,25 +100,23 @@ func dumplog(command *Command) {
 
 func handle(command *Command) {
 
-	var handlerMap = map[string]func(*Command){
-		"ADD":              add,
-		"COMMIT_BUY":       commit_buy,
-		"CANCEL_BUY":       cancel_buy,
-		"COMMIT_SELL":      commit_sell,
-		"CANCEL_SELL":      cancel_sell,
-		"DISPLAY_SUMMARY":  display_summary,
-		"BUY":              buy,
-		"SELL":             sell,
-		"SET_BUY_AMOUNT":   set_buy_amount,
-		"SET_BUY_TRIGGER":  set_buy_trigger,
-		"SET_SELL_AMOUNT":  set_sell_amount,
-		"SET_SELL_TRIGGER": set_sell_trigger,
-		"QUOTE":            quote,
-		"CANCEL_SET_BUY":   cancel_set_buy,
-		"CANCEL_SET_SELL":  cancel_set_sell,
-		"DUMPLOG":          dumplog,
+	handlerMap[command.Command](command)
+
+}
+
+//Use for testing on UVic machine
+func callQuery() {
+	connection_string := CONN_HOST + strconv.Itoa(CONN_PORT)
+	c, err := net.Dial("tcp", connection_string)
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
 
-	handlerMap[command.Command](command)
+	_, err = c.Write([]byte("BKM Warlock"))
+
+	result, err := ioutil.ReadAll(c)
+
+	fmt.Println(string(result))
 
 }
