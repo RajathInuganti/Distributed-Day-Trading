@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"day-trading/txserver/logs"
 	"log"
 
 	"github.com/streadway/amqp"
@@ -84,10 +85,12 @@ func consume(ch *amqp.Channel) {
 }
 
 func main() {
-	ch := setup()
-	setupDB()
-	//addtoDb //For testing purposes 
-	consume(ch)
+	// ch := setup()
+	// setupDB()
+	// //addtoDb //For testing purposes 
+	// consume(ch)
+
+	logs.CreateXML()
 }
 
 //testing purposes
