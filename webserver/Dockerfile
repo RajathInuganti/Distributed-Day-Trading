@@ -28,5 +28,7 @@ FROM alpine:latest
 # Copy the static executable.
 COPY --from=builder /src/main /src/main
 
+EXPOSE 8080
+
 # Run the binary.
 CMD ["/src/main"]

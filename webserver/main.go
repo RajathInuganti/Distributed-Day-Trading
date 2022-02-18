@@ -79,14 +79,14 @@ func main() {
 	var m sync.Mutex
 
 	ch := setupChannel()
-	startQueueService(ch, name, &responses)
+	go startQueueService(ch, name, &responses)
 
 	handler := commandHandler{m: &m, responses: &responses, ch: ch, queue: name}
 
 	log.Println("Starting server")
 
 	http.Handle("/transaction", handler)
-	log.Fatal(http.ListenAndServe("localhost:8080", nil))
+	log.Fatal(http.ListenAndServe(":8080", nil))
 
 }
 
