@@ -1,13 +1,13 @@
 package main
 
 import (
-	"log"
 	"context"
+	"log"
 
 	"github.com/streadway/amqp"
 
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
