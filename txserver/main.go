@@ -15,14 +15,6 @@ import (
 
 var collection *mongo.Collection
 
-type Command struct {
-	Command  string `json:"Command"`
-	Username string `json:"Username"`
-	Amount   string `json:"Amount"`
-	Stock    string `json:"Stock"`
-	Filename string `json:"Filename"`
-}
-
 func failOnError(message string, err error) {
 	if err != nil {
 		log.Fatalf("%s: %s", message, err)
@@ -143,6 +135,7 @@ func setupDB() {
 }
 
 func setup() *amqp.Channel {
+
 	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq")
 	if err != nil {
 		log.Fatalf("Failed to connect to RabbitMQ: %s", err)
