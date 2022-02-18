@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -40,8 +41,12 @@ func main() {
 	}
 
 	for {
-		update := <-updates
-		updateWorkerRecords(ctx, cli, envs, update.containerName, update.startContainer, updates)
+		select {
+		case update := <-updates:
+			updateWorkerRecords(ctx, cli, envs, update.containerName, update.startContainer, updates)
+		default:
+			log.Println("Awaiting updates...")
+		}
 	}
 }
 
