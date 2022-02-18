@@ -16,6 +16,16 @@ services:
   #   volumes:
   #     - /var/run/docker.sock:/var/run/docker.sock
 
+  mongodb_container:
+    image: mongo:latest
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - ~/apps/mongo:/data/db
+    networks:
+      - txnetwork
+
   txserver:
     build: txserver
     container_name: txserver
@@ -45,6 +55,8 @@ services:
       - 15672:15672
     networks:
       - txnetwork
+
+
   
 # the network's driver needs to be changed to 
 # overlay when we run it on AWS in swarm mode.
