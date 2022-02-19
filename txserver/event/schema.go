@@ -1,6 +1,8 @@
 package event
 
 import (
+	"log"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
 )
@@ -14,12 +16,17 @@ type Event struct {
 // UnmarshalBSONValue is an implementation that helps in decoding MongoDB bson response to golang struct
 func (e *Event) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
 	var rawData bson.Raw
+	
 	err := bson.Unmarshal(data, &rawData)
 	if err != nil {
+		log.Printf("Error unmarshalling bytes to type bson.RAW: %s, error: %s", string(data),  err)
 		return err
 	}
 
-	rawData.Lookup("eventType").Unmarshal(&e.EventType)
+	err = rawData.Lookup("eventType").Unmarshal(&e.EventType)
+	if err != nil {
+		log.Printf("Error unmarshalling eventType from rawBson: %+v, error: %s", rawData,  err)
+	}
 
 	switch e.EventType {
 	case "userCommand":
@@ -42,8 +49,13 @@ func (e *Event) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
 		e.Data = Debug{}
 	}
 
-	rawData.Lookup("data").Unmarshal(e.Data)
-	return err
+	err = rawData.Lookup("data").Unmarshal(e.Data)
+	if err != nil { 
+		log.Printf("Couldn't Marshal rawBson : %+v, got error: %s", rawData, err)
+		return err
+	}
+
+	return nil
 }	
 
 // UserCommand: Any command issued by the user
