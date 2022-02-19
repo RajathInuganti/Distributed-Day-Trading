@@ -1,18 +1,50 @@
-package logs
+package event
 
-import "encoding/xml"
+import (
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/bsontype"
+)
 
-// Log: The created Log object will have any *ONE* of the following fields.
-// https://www.ece.uvic.ca/~seng468/ProjectWebSite/logfile.xsd
-type Log struct {
-	XMLName xml.Name `xml:"log"`
-	UserCommand        []*UserCommand        `xml:"userCommand"`
-	QuoteServer        []*QuoteServer        `xml:"quoteServer"`
-	AccountTransaction []*AccountTransaction `xml:"accountTransaction"`
-	SystemEvent        []*SystemEvent        `xml:"systemEvent"`
-	ErrorEvent         []*ErrorEvent         `xml:"errorEvent"`
-	DebugEvent         []*Debug              `xml:"debugEvent"`
+// Event struct describes any 'event' that occurs in the system (any of UserCommand, QuoteServer, AccountTransaction, SystemEvent, ErrorEvent)
+type Event struct {
+	EventType string      `bson:"eventType"`
+	Data      interface{} `bson:"data"`
 }
+
+// UnmarshalBSONValue is an implementation that helps in decoding MongoDB bson response to golang struct
+func (e *Event) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
+	var rawData bson.Raw
+	err := bson.Unmarshal(data, &rawData)
+	if err != nil {
+		return err
+	}
+
+	rawData.Lookup("eventType").Unmarshal(&e.EventType)
+
+	switch e.EventType {
+	case "userCommand":
+		e.EventType = "userCommand"
+		e.Data = UserCommand{}
+	case "quoteServer":
+		e.EventType = "quoteServer"
+		e.Data = QuoteServer{}
+	case "accountTransaction":
+		e.EventType = "accountTransaction"
+		e.Data = AccountTransaction{}
+	case "systemEvent":
+		e.EventType = "systemEvent"
+		e.Data = SystemEvent{}
+	case "errorEvent":
+		e.EventType = "errorEvent"
+		e.Data = ErrorEvent{}
+	case "debugEvent":
+		e.EventType = "debug"
+		e.Data = Debug{}
+	}
+
+	rawData.Lookup("data").Unmarshal(e.Data)
+	return err
+}	
 
 // UserCommand: Any command issued by the user
 type UserCommand struct {
