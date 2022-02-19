@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/docker/docker v20.10.12+incompatible
 	github.com/streadway/amqp v1.0.0
+	go.mongodb.org/mongo-driver v1.8.3
 )
 
 require (

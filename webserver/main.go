@@ -3,32 +3,34 @@ package main
 import (
 	"log"
 	"net/http"
+	"strconv"
 	"sync"
 
 	"github.com/streadway/amqp"
 )
 
 type commandHandler struct {
-	m         *sync.Mutex
+	lock      *sync.Mutex
 	responses *map[string]string
 	ch        *amqp.Channel
 	queue     string
+	txCount   int
 }
 
-func (c commandHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+func (handler commandHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+
+	var command []byte
 	if request.Method == "POST" {
 
-		err := request.ParseForm()
-		failOnError("Error while Parsing POST request form", err)
+		_, err := request.Body.Read(command)
+		failOnError("Failed to read HTTP request body", err)
 
-		command := request.Form.Get("command")
-		txNum := request.Form.Get("txNum")
-
-		Publish(c.ch, c.queue, command, txNum)
+		handler.txCount = handler.txCount + 1
+		Publish(handler.ch, handler.queue, command, strconv.Itoa(handler.txCount))
 	}
 }
 
-func Publish(ch *amqp.Channel, queue string, command string, txNum string) {
+func Publish(ch *amqp.Channel, queue string, command []byte, txNum string) {
 	err := ch.Publish(
 		"",
 		"rpc_queue",
@@ -38,12 +40,14 @@ func Publish(ch *amqp.Channel, queue string, command string, txNum string) {
 			ContentType:   "text/plain",
 			CorrelationId: txNum,
 			ReplyTo:       queue,
-			Body:          []byte(command),
+			Body:          command,
 		})
 	failOnError("Failed to publish a message", err)
+
+	log.Println("Successfully Published message")
 }
 
-func startQueueService(ch *amqp.Channel, queue string, responses *map[string]string) {
+func startQueueService(ch *amqp.Channel, queue string, responses *map[string]string, lock *sync.Mutex) {
 
 	q, err := ch.QueueDeclare(
 		queue, // name
@@ -76,14 +80,12 @@ func main() {
 
 	name := "client"
 	responses := make(map[string]string)
-	var m sync.Mutex
+	var lock sync.Mutex
 
 	ch := setupChannel()
-	go startQueueService(ch, name, &responses)
+	go startQueueService(ch, name, &responses, &lock)
 
-	handler := commandHandler{m: &m, responses: &responses, ch: ch, queue: name}
-
-	log.Println("Starting server")
+	handler := commandHandler{lock: &lock, responses: &responses, ch: ch, queue: name, txCount: 0}
 
 	http.Handle("/transaction", handler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
