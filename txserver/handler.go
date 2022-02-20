@@ -3,12 +3,16 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 
 	//"os"
 	//"strings"
 	"io/ioutil"
 	"strconv"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 const (
@@ -96,13 +100,26 @@ func cancel_set_sell(ctx *context.Context, command *Command) error {
 }
 
 func dumplog(ctx *context.Context, command *Command) error {
+	eventCollection := mongoClient.Database("test").Collection("Events")
+	var cursor *mongo.Cursor
+	var err error
 	if command.Username != "" {
 		// get events for specified user
+		filter := bson.M{"user": command.Username}
+		cursor, err = eventCollection.Find(*ctx, filter)
+		if err != nil {
+			log.Printf("Error getting events from the Events collectino for the user %s, query: %+v %s", command.Username, filter, err)
+		}
 	} else {
 		// get all events
+		cursor, err = eventCollection.Find(*ctx, bson.D{})
+		if err != nil {
+			log.Printf("Error getting all the events from the Events collection, error:  %s", err)
+			return err
+		}
 	}
 
-
+	defer cursor.Close(*ctx)
 
 	return nil
 }
