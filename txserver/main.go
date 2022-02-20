@@ -13,6 +13,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
+// a global client that can be used across the package
+var mongoClient *mongo.Client
+
 var collection *mongo.Collection
 
 func failOnError(message string, err error) {
@@ -115,25 +118,24 @@ func addtoDB() {
 func setupDB() {
 
 	const uri = "mongodb://mongodb_container:27017/?maxPoolSize=20&w=majority"
-	var client, err = mongo.Connect(context.TODO(), options.Client().ApplyURI(uri))
-
+	mongoClient, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(uri))
 	if err != nil {
 		panic(err)
 	}
 
 	defer func() {
-		if err = client.Disconnect(context.TODO()); err != nil {
+		if err = mongoClient.Disconnect(context.TODO()); err != nil {
 			panic(err)
 		}
 	}()
 
-	if err := client.Ping(context.TODO(), readpref.Primary()); err != nil {
+	if err := mongoClient.Ping(context.TODO(), readpref.Primary()); err != nil {
 		panic(err)
 	}
 
-	log.Printf("Successfully connected and pinged.")
+	log.Printf("Successfully connected to MongoDB and pinged.")
 
-	collection = client.Database("test").Collection("transactions")
+	collection = mongoClient.Database("test").Collection("Events")
 
 }
 
