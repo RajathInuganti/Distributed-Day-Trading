@@ -6,11 +6,7 @@ import (
 	"log"
 
 	"github.com/streadway/amqp"
-
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 // a global client that can be used across the package
@@ -100,44 +96,6 @@ func main() {
 
 
 	
-}
-
-//testing purposes
-func addtoDB() {
-
-	doc := bson.D{{"user", "sadfd23sfds"}, {"account_balance", "98742"}}
-
-	result, err := collection.InsertOne(context.TODO(), doc)
-
-	if err != nil {
-		panic(err)
-	}
-
-	log.Printf("Inserted document with _id: %v\n", result.InsertedID)
-}
-
-func setupDB() {
-
-	const uri = "mongodb://mongodb_container:27017/?maxPoolSize=20&w=majority"
-	mongoClient, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(uri))
-	if err != nil {
-		panic(err)
-	}
-
-	defer func() {
-		if err = mongoClient.Disconnect(context.TODO()); err != nil {
-			panic(err)
-		}
-	}()
-
-	if err := mongoClient.Ping(context.TODO(), readpref.Primary()); err != nil {
-		panic(err)
-	}
-
-	log.Printf("Successfully connected to MongoDB and pinged.")
-
-	collection = mongoClient.Database("test").Collection("Events")
-
 }
 
 func setup() *amqp.Channel {
