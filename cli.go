@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -18,6 +19,10 @@ type Command struct {
 	Amount   string `json:"Amount"`
 	Stock    string `json:"Stock"`
 	Filename string `json:"Filename"`
+}
+
+type Response struct {
+	Data []byte `json:"data"`
 }
 
 // FromStringToCommandStruct takes a line from the user command file as an input and returns a defined golang structure
@@ -69,6 +74,62 @@ func checkError(e error, additionalMessage string) {
 	}
 }
 
+func HandleCommand(command *Command) error {
+	var buffer bytes.Buffer
+	err := json.NewEncoder(&buffer).Encode(command)
+	if err != nil {
+		log.Printf("Error while encoding command: %+v", command)
+		return err
+	}
+
+	res, err := http.Post("http://localhost:8080/", "application/json", &buffer)
+	if err != nil {
+		log.Printf("Error while sending request: %s", err)
+		return err
+	}
+
+	HandleResponseForCommand(command, res)
+	return nil
+}
+
+func HandleResponseForCommand(cmd *Command, res *http.Response) error { 
+	log.Printf("Got response: %s for %+v", res.Status, cmd)
+
+	if cmd.Command != "DUMPLOG" && cmd.Command != "DISPLAY_SUMMARY" {
+		// will handle later for other commands
+		return nil
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Printf("Error while reading response body: %s\n", err)
+		return err
+	}
+
+	log.Printf("Response body: %s\n", string(body))
+
+	responseStruct := &Response{}
+	err = json.Unmarshal(body, responseStruct)
+	if err != nil { 
+		log.Printf("Error while unmarshalling response body: %s\n", err)
+		return err
+	}
+
+	if cmd.Command == "DUMPLOG" {
+		err = ioutil.WriteFile(cmd.Filename, responseStruct.Data, 0644)
+		if err != nil { 
+			log.Printf("Error while writing response body to file: %s\n", err)
+			return err
+		}
+		fmt.Printf("Contents successfully written to %s\n", cmd.Filename)
+		return nil
+	}
+	
+	// For DISPLAY_SUMMARY
+	fmt.Printf("%s\n", string(responseStruct.Data))
+	return nil
+}
+
 func main() {
 	if len(os.Args) != 2 {
 		fmt.Println("Please follow the following format: go run cmd.go <path_to_workload_file.txt>")
@@ -90,16 +151,15 @@ func main() {
 
 		fmt.Printf("iteration: %d requestData: %#v\n", i+1, requestData)
 
-		var buffer bytes.Buffer
-		err = json.NewEncoder(&buffer).Encode(requestData)
+		
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		res, err := http.Post("http://localhost:8080/transaction", "application/json", &buffer)
-		checkError(err, "Got error while doing a post request")
-
-		fmt.Printf("Got response code: %v\n", res.StatusCode)
+		err = HandleCommand(requestData)
+		if err != nil { 
+			log.Printf("Error while handling command %+v: %s", requestData, err) 
+		}
 	}
 
 }
