@@ -30,8 +30,6 @@ func get_qoute(username string, stock string) string {
 		conn = quote_server_connect()
 	}
 
-	defer conn.Close()
-
 	_, err := conn.Write([]byte(stock + username))
 	if err != nil {
 		return get_qoute(username, stock)
@@ -39,10 +37,12 @@ func get_qoute(username string, stock string) string {
 
 	result, err := ioutil.ReadAll(conn)
 	if err != nil || result == nil {
-		get_qoute(username, stock)
+		return get_qoute(username, stock)
 	}
 
 	fmt.Println(string(result))
+
+	conn.Close()
 
 	return string(result)
 
