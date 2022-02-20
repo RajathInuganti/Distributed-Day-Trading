@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 )
 
@@ -42,7 +43,10 @@ func get_qoute(username string, stock string) string {
 
 	fmt.Println(string(result))
 
-	conn.Close()
+	err = conn.Close()
+	if err != nil {
+		log.Fatalf("Unable to close connection with UVic Quote server")
+	}
 
 	return string(result)
 
