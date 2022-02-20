@@ -24,7 +24,7 @@ func failOnError(message string, err error) {
 	}
 }
 
-func consume(ch *amqp.Channel) {
+func consume(ctx *context.Context, ch *amqp.Channel) {
 
 	command := new(Command)
 
@@ -64,7 +64,7 @@ func consume(ch *amqp.Channel) {
 			failOnError("Failed to unmarshal message body", err)
 
 			// need to called handler from here to handle the various commands
-			handle(command)
+			handle(ctx, command)
 
 			msgBody, err := json.Marshal(command)
 			failOnError("Failed to marshal message body", err)
@@ -92,10 +92,11 @@ func consume(ch *amqp.Channel) {
 }
 
 func main() {
-	// ch := setup()
+	ctx := context.Background()
+	ch := setup()
 	// setupDB()
 	// //addtoDb //For testing purposes 
-	// consume(ch)
+	consume(&ctx, ch)
 
 
 	
