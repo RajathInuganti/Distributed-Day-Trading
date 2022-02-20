@@ -1,4 +1,4 @@
-version: "3.8"
+version: "3.7"
 
 services:
 
@@ -16,15 +16,15 @@ services:
   #   volumes:
   #     - /var/run/docker.sock:/var/run/docker.sock
 
-  mongodb_container:
-    image: mongo:latest
-    restart: always
-    ports:
-      - "27017:27017"
-    volumes:
-      - ~/apps/mongo:/data/db
-    networks:
-      - txnetwork
+  # mongodb_container:
+  #   image: mongo:alpine
+  #   restart: always
+  #   ports:
+  #     - "27017:27017"
+  #   volumes:
+  #     - ~/apps/mongo:/data/db
+  #   networks:
+  #     - txnetwork
 
   txserver:
     build: txserver

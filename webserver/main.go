@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 
@@ -78,14 +79,14 @@ func startQueueService(ch *amqp.Channel, queue string, responses *map[string]str
 
 func main() {
 
-	name := "client"
+	containerID := os.Getenv("HOSTNAME")
 	responses := make(map[string]string)
 	var lock sync.Mutex
 
 	ch := setupChannel()
-	go startQueueService(ch, name, &responses, &lock)
+	go startQueueService(ch, containerID, &responses, &lock)
 
-	handler := commandHandler{lock: &lock, responses: &responses, ch: ch, queue: name, txCount: 0}
+	handler := commandHandler{lock: &lock, responses: &responses, ch: ch, queue: containerID, txCount: 0}
 
 	http.Handle("/transaction", handler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
