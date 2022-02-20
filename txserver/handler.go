@@ -7,12 +7,10 @@ import (
 	//"os"
 	//"strings"
 	"io/ioutil"
-	"strconv"
 )
 
 const (
-	CONN_HOST = "192.168.4.2"
-	CONN_PORT = 4444
+	CONN_URL = "192.168.4.2:4444"
 )
 
 var handlerMap = map[string]func(*Command){
@@ -104,19 +102,40 @@ func handle(command *Command) {
 
 }
 
-//Use for testing on UVic machine
-func callQuery() {
-	connection_string := CONN_HOST + strconv.Itoa(CONN_PORT)
-	c, err := net.Dial("tcp", connection_string)
+func quote_server_connect() net.Conn {
+
+	conn, err := net.Dial("tcp", CONN_URL)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return nil
 	}
 
-	_, err = c.Write([]byte("BKM Warlock"))
+	return conn
+}
 
-	result, err := ioutil.ReadAll(c)
+//Use for testing on UVic machine
+func get_qoute(username string, stock string) string {
+
+	var conn net.Conn
+
+	conn = quote_server_connect()
+	for conn == nil {
+		conn = quote_server_connect()
+	}
+
+	defer conn.Close()
+
+	_, err := conn.Write([]byte(stock + username))
+	if err != nil {
+		return get_qoute(username, stock)
+	}
+
+	result, err := ioutil.ReadAll(conn)
+	if err != nil || result == nil {
+		get_qoute(username, stock)
+	}
 
 	fmt.Println(string(result))
+
+	return string(result)
 
 }
