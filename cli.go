@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -89,10 +90,13 @@ func main() {
 
 		fmt.Printf("iteration: %d requestData: %#v\n", i+1, requestData)
 
-		parsedJson, err := json.Marshal(requestData)
-		checkError(err, "Couldn't parse golang struct to JSON")
+		var buffer bytes.Buffer
+		err = json.NewEncoder(&buffer).Encode(requestData)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-		res, err := http.Post("http://localhost:8080/", "application/json", bytes.NewBuffer(parsedJson))
+		res, err := http.Post("http://localhost:8080/transaction", "application/json", &buffer)
 		checkError(err, "Got error while doing a post request")
 
 		fmt.Printf("Got response code: %v\n", res.StatusCode)

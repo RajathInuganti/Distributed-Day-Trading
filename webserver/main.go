@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -11,20 +12,23 @@ import (
 )
 
 type commandHandler struct {
-	lock      *sync.Mutex
-	responses *map[string]string
-	ch        *amqp.Channel
-	queue     string
 	txCount   int
+	queue     string
+	lock      *sync.Mutex
+	ch        *amqp.Channel
+	responses *map[string]string
 }
 
 func (handler commandHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
-	var command []byte
+	var body Command
 	if request.Method == "POST" {
 
-		_, err := request.Body.Read(command)
+		err := json.NewDecoder(request.Body).Decode(&body)
 		failOnError("Failed to read HTTP request body", err)
+
+		command, err := json.Marshal(body)
+		failOnError("Failed to unmarshal HTTP request body", err)
 
 		handler.txCount = handler.txCount + 1
 		Publish(handler.ch, handler.queue, command, strconv.Itoa(handler.txCount))
@@ -34,7 +38,7 @@ func (handler commandHandler) ServeHTTP(writer http.ResponseWriter, request *htt
 func Publish(ch *amqp.Channel, queue string, command []byte, txNum string) {
 	err := ch.Publish(
 		"",
-		"rpc_queue",
+		"server",
 		false,
 		false,
 		amqp.Publishing{
@@ -44,8 +48,6 @@ func Publish(ch *amqp.Channel, queue string, command []byte, txNum string) {
 			Body:          command,
 		})
 	failOnError("Failed to publish a message", err)
-
-	log.Println("Successfully Published message")
 }
 
 func startQueueService(ch *amqp.Channel, queue string, responses *map[string]string, lock *sync.Mutex) {
