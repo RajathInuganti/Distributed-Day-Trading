@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"day-trading/txserver/event"
+	"encoding/xml"
 	"fmt"
 	"log"
 	"net"
@@ -101,6 +103,8 @@ func cancel_set_sell(ctx *context.Context, command *Command) error {
 
 func dumplog(ctx *context.Context, command *Command) error {
 	eventCollection := mongoClient.Database("test").Collection("Events")
+
+	// fetch results from mongo
 	var cursor *mongo.Cursor
 	var err error
 	if command.Username != "" {
@@ -108,7 +112,7 @@ func dumplog(ctx *context.Context, command *Command) error {
 		filter := bson.M{"user": command.Username}
 		cursor, err = eventCollection.Find(*ctx, filter)
 		if err != nil {
-			log.Printf("Error getting events from the Events collectino for the user %s, query: %+v %s", command.Username, filter, err)
+			log.Printf("Error getting events from the Events collection for the user %s, query: %+v %s", command.Username, filter, err)
 		}
 	} else {
 		// get all events
@@ -119,7 +123,38 @@ func dumplog(ctx *context.Context, command *Command) error {
 		}
 	}
 
+	// turn results into xml (bytes form)
 	defer cursor.Close(*ctx)
+	xmlEncoding := []byte(xml.Header)
+	xmlEncoding = append(xmlEncoding, []byte("<Log>\n")...)
+	for cursor.Next(*ctx) {
+		event := &event.Event{}
+		err := cursor.Decode(event)
+		if err != nil { 
+			log.Printf("Error while decoding a mongo doc into go struct. : %v ", cursor.Current)
+			continue 
+			// not sure if this continue statement will work
+		}
+
+		eventBytes, err := xml.MarshalIndent(event.Data, "  ", "  ")
+		if err != nil {
+			log.Printf("Couldn't marshal parsed event %+v in to xml, error: %s", event.Data, err)
+			continue
+			// not sure if this continue statement will work
+		}
+
+		xmlEncoding = append(xmlEncoding, eventBytes...)
+		xmlEncoding = append(xmlEncoding, []byte("\n")...)	
+	}
+	if err := cursor.Err(); err != nil {
+		panic(err)
+	}
+
+	xmlEncoding = append(xmlEncoding, []byte("</Log>\n")...)
+	log.Println("\n", string(xmlEncoding))
+
+
+	// push bytes to rabbitMQ
 
 	return nil
 }
