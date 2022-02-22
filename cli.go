@@ -88,7 +88,10 @@ func HandleCommand(command *Command) error {
 		return err
 	}
 
-	HandleResponseForCommand(command, res)
+	err = HandleResponseForCommand(command, res)
+	if err != nil {
+		log.Printf("Error while handling response for cmd: %+v: %s", command, err)
+	}
 	return nil
 }
 
