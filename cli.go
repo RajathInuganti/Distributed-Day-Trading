@@ -116,7 +116,7 @@ func HandleResponseForCommand(cmd *Command, res *http.Response) error {
 	}
 
 	if cmd.Command == "DUMPLOG" {
-		err = ioutil.WriteFile(cmd.Filename, responseStruct.Data, 0644)
+		err = ioutil.WriteFile(cmd.Filename, responseStruct.Data, 0444)
 		if err != nil { 
 			log.Printf("Error while writing response body to file: %s\n", err)
 			return err
