@@ -60,9 +60,8 @@ func consume(ctx *context.Context, ch *amqp.Channel) {
 			failOnError("Failed to unmarshal message body", err)
 
 			// need to called handler from here to handle the various commands
-			handle(ctx, command)
-
-			msgBody, err := json.Marshal(command)
+			response := handle(ctx, command)
+			msgBody, err := json.Marshal(response)
 			failOnError("Failed to marshal message body", err)
 
 			err = ch.Publish(

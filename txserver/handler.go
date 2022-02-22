@@ -18,7 +18,7 @@ const (
 	CONN_PORT = 4444
 )
 
-var handlerMap = map[string]func(*context.Context, *Command) error {
+var handlerMap = map[string]func(*context.Context, *Command) ([]byte, error) {
 	"ADD":              add,
 	"COMMIT_BUY":       commit_buy,
 	"CANCEL_BUY":       cancel_buy,
@@ -37,67 +37,67 @@ var handlerMap = map[string]func(*context.Context, *Command) error {
 	"DUMPLOG":          dumplog,
 }
 
-func add(ctx *context.Context, command *Command) error {
-	return nil
+func add(ctx *context.Context, command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func commit_buy(ctx *context.Context, command *Command) error {
-	return nil
+func commit_buy(ctx *context.Context, command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func cancel_buy(ctx *context.Context, command *Command) error {
-	return nil
+func cancel_buy(ctx *context.Context, command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func commit_sell(ctx *context.Context, command *Command) error {
-	return nil
+func commit_sell(ctx *context.Context, command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func cancel_sell(ctx *context.Context, command *Command) error {
-	return nil
+func cancel_sell(ctx *context.Context, command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func display_summary(ctx *context.Context, command *Command) error {
-	return nil
+func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func buy(ctx *context.Context, command *Command) error {
-	return nil
+func buy(ctx *context.Context, command *Command) ([]byte, error)  {
+	return []byte{}, nil
 }
 
-func sell(ctx *context.Context, command *Command) error {
-	return nil
+func sell(ctx *context.Context, command *Command) ([]byte, error)  {
+	return []byte{}, nil
 }
 
-func set_buy_amount(ctx *context.Context, command *Command) error {
-	return nil
+func set_buy_amount(ctx *context.Context, command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func set_buy_trigger(ctx *context.Context, command *Command) error {
-	return nil
+func set_buy_trigger(ctx *context.Context, command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func set_sell_amount(ctx *context.Context, command *Command) error {
-	return nil
+func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func set_sell_trigger(ctx *context.Context, command *Command) error {
-	return nil
+func set_sell_trigger(ctx *context.Context, command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func quote(ctx *context.Context, command *Command) error {
-	return nil
+func quote(ctx *context.Context, command *Command) ([]byte,error)  {
+	return []byte{}, nil
 }
 
-func cancel_set_buy(ctx *context.Context, command *Command) error {
-	return nil
+func cancel_set_buy(ctx *context.Context, command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func cancel_set_sell(ctx *context.Context, command *Command) error {
-	return nil
+func cancel_set_sell(ctx *context.Context, command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func dumplog(ctx *context.Context, command *Command) error {
+func dumplog(ctx *context.Context, command *Command) ([]byte,error) {
 	eventCollection := mongoClient.Database("test").Collection("Events")
 
 	// fetch results from mongo
@@ -109,13 +109,14 @@ func dumplog(ctx *context.Context, command *Command) error {
 		cursor, err = eventCollection.Find(*ctx, filter)
 		if err != nil {
 			log.Printf("Error getting events from the Events collection for the user %s, query: %+v %s", command.Username, filter, err)
+			return []byte{}, err
 		}
 	} else {
 		// get all events
 		cursor, err = eventCollection.Find(*ctx, bson.D{})
 		if err != nil {
 			log.Printf("Error getting all the events from the Events collection, error:  %s", err)
-			return err
+			return []byte{}, err
 		}
 	}
 
@@ -149,17 +150,18 @@ func dumplog(ctx *context.Context, command *Command) error {
 	xmlEncoding = append(xmlEncoding, []byte("</Log>\n")...)
 	log.Println("\n", string(xmlEncoding))
 
-
-	// push bytes to rabbitMQ
-
-	return nil
+	return xmlEncoding, nil
 }
 
-func handle(ctx *context.Context, command *Command) {
-	err := handlerMap[command.Command](ctx, command)
+func handle(ctx *context.Context, command *Command) *Response{
+	response := &Response{}
+	responseData, err := handlerMap[command.Command](ctx, command)
 	if err != nil {
 		log.Printf("Error handling command %+v, error: %s", command, err)
+		response.Error = err.Error()
+		return response
 	}
 
-	// we should retry if handling fails.
+	response.Data = responseData
+	return response
 }
