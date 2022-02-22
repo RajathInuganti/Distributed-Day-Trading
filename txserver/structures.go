@@ -7,3 +7,8 @@ type Command struct {
 	Stock    string `json:"Stock"`
 	Filename string `json:"Filename"`
 }
+
+type Response struct {
+	Data  []byte `json:"Data"`
+	Error string `json:"Error"`
+}

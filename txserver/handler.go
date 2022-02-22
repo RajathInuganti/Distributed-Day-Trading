@@ -1,9 +1,11 @@
 package main
 
+import "log"
+
 //"os"
 //"strings"
 
-var handlerMap = map[string]func(*Command){
+var handlerMap = map[string]func(*Command)([]byte, error){
 	"ADD":              add,
 	"COMMIT_BUY":       commit_buy,
 	"CANCEL_BUY":       cancel_buy,
@@ -22,72 +24,79 @@ var handlerMap = map[string]func(*Command){
 	"DUMPLOG":          dumplog,
 }
 
-func add(command *Command) {
-
+func add(command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func commit_buy(command *Command) {
-
+func commit_buy(command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func cancel_buy(command *Command) {
-
+func cancel_buy(command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func commit_sell(command *Command) {
-
+func commit_sell(command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func cancel_sell(command *Command) {
-
+func cancel_sell(command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func display_summary(command *Command) {
-
+func display_summary(command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func buy(command *Command) {
-
+func buy(command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func sell(command *Command) {
-
+func sell(command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func set_buy_amount(command *Command) {
-
+func set_buy_amount(command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func set_buy_trigger(command *Command) {
-
+func set_buy_trigger(command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func set_sell_amount(command *Command) {
-
+func set_sell_amount(command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func set_sell_trigger(command *Command) {
-
+func set_sell_trigger(command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func quote(command *Command) {
-
+func quote(command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func cancel_set_buy(command *Command) {
-
+func cancel_set_buy(command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func cancel_set_sell(command *Command) {
-
+func cancel_set_sell(command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func dumplog(command *Command) {
-
+func dumplog(command *Command) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func handle(command *Command) {
+func handle(command *Command) *Response{
 
-	handlerMap[command.Command](command)
+	responseData, err := handlerMap[command.Command](command)
+	if err != nil {
+		log.Println(err)
+		return &Response{Error: err.Error()}
+	}
 
+	return &Response{Data: responseData}
 }
+
+
