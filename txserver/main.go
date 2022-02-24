@@ -1,11 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 
 	"github.com/streadway/amqp"
+	"go.mongodb.org/mongo-driver/mongo"
 )
+
+// a global client that can be used across the package
+var mongoClient *mongo.Client
 
 func failOnError(message string, err error) {
 	if err != nil {
@@ -13,7 +18,7 @@ func failOnError(message string, err error) {
 	}
 }
 
-func consume(ch *amqp.Channel) {
+func consume(ctx *context.Context, ch *amqp.Channel) {
 
 	command := new(Command)
 
@@ -50,7 +55,7 @@ func consume(ch *amqp.Channel) {
 		failOnError("Failed to unmarshal message body message", err)
 
 		// need to called handler from here to handle the various commands
-		response := handle(command)
+		response := handle(ctx, command)
 
 		msgBody, err := json.Marshal(response)
 		failOnError("Failed to marshal message body", err)
@@ -73,10 +78,11 @@ func consume(ch *amqp.Channel) {
 }
 
 func main() {
+	ctx := context.Background()
 	ch := setup()
-	//setupDB()
+	setupDB()
 	//addtoDb //For testing purposes
-	consume(ch)
+	consume(&ctx, ch)
 }
 
 func setup() *amqp.Channel {

@@ -9,6 +9,6 @@ type Command struct {
 }
 
 type Response struct {
-	Data  []byte `json:"Data"`
-	Error string `json:"Error"`
+	Data  []byte `json:"data"`
+	Error string `json:"error"`
 }
