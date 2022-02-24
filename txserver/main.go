@@ -4,13 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"os"
+	"time"
 
 	"github.com/streadway/amqp"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // a global client that can be used across the package
-var mongoClient *mongo.Client
+var client *mongo.Client
 
 func failOnError(message string, err error) {
 	if err != nil {
@@ -78,11 +81,12 @@ func consume(ctx *context.Context, ch *amqp.Channel) {
 }
 
 func main() {
-	ctx := context.Background()
 	ch := setup()
-	setupDB()
-	//addtoDb //For testing purposes
+	var cancel context.CancelFunc
+	ctx := context.Background()
+	client, cancel = setupDB(ctx)
 	consume(&ctx, ch)
+	cancel()
 }
 
 func setup() *amqp.Channel {
@@ -98,4 +102,11 @@ func setup() *amqp.Channel {
 	}
 
 	return ch
+}
+
+func setupDB(ctx context.Context) (*mongo.Client, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(os.Getenv("MONGODB_URI")))
+	failOnError("Error while connecting to MongoDB", err)
+	return client, cancel
 }

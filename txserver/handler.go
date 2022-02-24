@@ -16,12 +16,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-const (
-	CONN_HOST = "192.168.4.2"
-	CONN_PORT = 4444
-)
-
-var handlerMap = map[string]func(*context.Context, *Command) ([]byte, error) {
+var handlerMap = map[string]func(*context.Context, *Command) ([]byte, error){
 	"ADD":              add,
 	"COMMIT_BUY":       commit_buy,
 	"CANCEL_BUY":       cancel_buy,
@@ -64,11 +59,11 @@ func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func buy(ctx *context.Context, command *Command) ([]byte, error)  {
+func buy(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func sell(ctx *context.Context, command *Command) ([]byte, error)  {
+func sell(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte{}, nil
 }
 
@@ -88,7 +83,7 @@ func set_sell_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func quote(ctx *context.Context, command *Command) ([]byte,error)  {
+func quote(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte{}, nil
 }
 
@@ -100,8 +95,8 @@ func cancel_set_sell(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func dumplog(ctx *context.Context, command *Command) ([]byte,error) {
-	eventCollection := mongoClient.Database("test").Collection("Events")
+func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
+	eventCollection := client.Database("test").Collection("Events")
 
 	// fetch results from mongo
 	var cursor *mongo.Cursor
@@ -130,9 +125,9 @@ func dumplog(ctx *context.Context, command *Command) ([]byte,error) {
 	for cursor.Next(*ctx) {
 		event := &event.Event{}
 		err := cursor.Decode(event)
-		if err != nil { 
+		if err != nil {
 			log.Printf("Error while decoding a mongo doc into go struct. : %v ", cursor.Current)
-			continue 
+			continue
 			// not sure if this continue statement will work
 		}
 
@@ -144,7 +139,7 @@ func dumplog(ctx *context.Context, command *Command) ([]byte,error) {
 		}
 
 		xmlEncoding = append(xmlEncoding, eventBytes...)
-		xmlEncoding = append(xmlEncoding, []byte("\n")...)	
+		xmlEncoding = append(xmlEncoding, []byte("\n")...)
 	}
 	if err := cursor.Err(); err != nil {
 		panic(err)
@@ -156,7 +151,7 @@ func dumplog(ctx *context.Context, command *Command) ([]byte,error) {
 	return xmlEncoding, nil
 }
 
-func handle(ctx *context.Context, command *Command) *Response{
+func handle(ctx *context.Context, command *Command) *Response {
 	response := &Response{}
 	responseData, err := handlerMap[command.Command](ctx, command)
 	if err != nil {
@@ -174,12 +169,11 @@ func VerifyAndParseRequestData(command *Command) error {
 		return errors.New("no command specified in the command message")
 	}
 
-	amountIntValue, AmountNotConvertibleToIntError := strconv.Atoi(fmt.Sprintf("%v",command.Amount))
+	amountIntValue, AmountNotConvertibleToIntError := strconv.Atoi(fmt.Sprintf("%v", command.Amount))
 	usernameEmpty := command.Username == ""
 	stockSymbolEmpty := command.Stock == ""
-		
 
-	if command.Command == "ADD" && (command.Username == "" || AmountNotConvertibleToIntError != nil){
+	if command.Command == "ADD" && (command.Username == "" || AmountNotConvertibleToIntError != nil) {
 		return errors.New("either the provided username is empty or the amount specified is not a number")
 	}
 
@@ -189,7 +183,7 @@ func VerifyAndParseRequestData(command *Command) error {
 	}
 
 	if (command.Command == "BUY" || command.Command == "SELL" || command.Command == "SET_BUY_AMOUNT" ||
-	 	command.Command == "SET_BUY_TRIGGER" || command.Command == "SET_SELL_AMOUNT" || command.Command == "SET_SELL_TRIGGER") && 
+		command.Command == "SET_BUY_TRIGGER" || command.Command == "SET_SELL_AMOUNT" || command.Command == "SET_SELL_TRIGGER") &&
 		(usernameEmpty || stockSymbolEmpty || AmountNotConvertibleToIntError != nil) {
 		return errors.New("either the provided username is empty or the amount specified is not a number or a stockSymbol was not specified")
 	}
@@ -211,4 +205,3 @@ func VerifyAndParseRequestData(command *Command) error {
 	return nil
 
 }
-
