@@ -4,10 +4,10 @@ import (
 	"context"
 	"day-trading/txserver/event"
 	"encoding/xml"
-	"strconv"
-	"log"
 	"errors"
 	"fmt"
+	"log"
+	"strconv"
 
 	//"os"
 	//"strings"
@@ -167,6 +167,7 @@ func handle(ctx *context.Context, command *Command) *Response{
 
 	response.Data = responseData
 	return response
+}
 
 func VerifyAndParseRequestData(command *Command) error {
 	if command.Command == "" {

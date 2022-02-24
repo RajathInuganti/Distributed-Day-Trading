@@ -12,8 +12,6 @@ import (
 // a global client that can be used across the package
 var mongoClient *mongo.Client
 
-var collection *mongo.Collection
-
 func failOnError(message string, err error) {
 	if err != nil {
 		log.Fatalf("%s: %s", message, err)
