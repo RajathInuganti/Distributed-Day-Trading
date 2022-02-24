@@ -60,7 +60,7 @@ func (e *Event) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
 
 // UserCommand: Any command issued by the user
 type UserCommand struct {
-	Timestamp      int     `xml:"timestamp"`
+	Timestamp      int64     `xml:"timestamp"`
 	Server         string  `xml:"server"`
 	TransactionNum int     `xml:"transactionNum"`
 	Command        string  `xml:"command"`
@@ -72,7 +72,7 @@ type UserCommand struct {
 
 // QuoteServer: Any communication with the quoter server
 type QuoteServer struct {
-	Timestamp       int     `xml:"timestamp"`
+	Timestamp       int64     `xml:"timestamp"`
 	Server          string  `xml:"server"`
 	TransactionNum  int     `xml:"transactionNum"`
 	Price           float64 `xml:"price"`
@@ -84,7 +84,7 @@ type QuoteServer struct {
 
 // AccountTransaction: any change in User's account
 type AccountTransaction struct {
-	Timestamp      int     `xml:"timestamp"`
+	Timestamp      int64     `xml:"timestamp"`
 	Server         string  `xml:"server"`
 	TransactionNum int     `xml:"transactionNum"`
 	Action         string  `xml:"action"`
@@ -94,7 +94,7 @@ type AccountTransaction struct {
 
 // SystemEvent: Any event that is triggered by our system. For example, buying a stock because a trigger was set by the user.
 type SystemEvent struct {
-	Timestamp      int     `xml:"timestamp"`
+	Timestamp      int64     `xml:"timestamp"`
 	Server         string  `xml:"server"`
 	TransactionNum int     `xml:"transactionNum"`
 	Command        string  `xml:"command"`
@@ -106,7 +106,7 @@ type SystemEvent struct {
 
 // ErrorEvent: Any error that occurs for a transaction with the quote server
 type ErrorEvent struct {
-	Timestamp      int     `xml:"timestamp"`
+	Timestamp      int64     `xml:"timestamp"`
 	Server         string  `xml:"server"`
 	TransactionNum int     `xml:"transactionNum"`
 	Command        string  `xml:"command"`
@@ -119,7 +119,7 @@ type ErrorEvent struct {
 
 // Debug: debug logs for ourselves
 type Debug struct {
-	Timestamp      int     `xml:"timestamp"`
+	Timestamp      int64     `xml:"timestamp"`
 	Server         string  `xml:"server"`
 	TransactionNum int     `xml:"transactionNum"`
 	Command        string  `xml:"command"`
