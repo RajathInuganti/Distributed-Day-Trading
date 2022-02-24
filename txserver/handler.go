@@ -60,10 +60,6 @@ func cancel_sell(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
-}
-
 func buy(ctx *context.Context, command *Command) ([]byte, error)  {
 	return []byte{}, nil
 }
@@ -97,6 +93,10 @@ func cancel_set_buy(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func cancel_set_sell(ctx *context.Context, command *Command) ([]byte, error) {
+	return []byte{}, nil
+}
+
+func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte{}, nil
 }
 

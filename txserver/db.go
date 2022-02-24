@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"day-trading/txserver/event"
+	"fmt"
 	"log"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -48,4 +50,22 @@ func setupDB() {
 
 	collection = client.Database("test").Collection("transactions")
 
+}
+
+func insertEvent(ctx *context.Context, event *event.Event) error {
+	bsonBytes, err := bson.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("error marshalling event: %s", err)
+	}	
+
+	eventsCollection := mongoClient.Database("test").Collection("Events")
+
+	id, err := eventsCollection.InsertOne(*ctx, bsonBytes)
+	if err != nil {
+		return fmt.Errorf("error inserting event %+v to mongo, error: %s", event, err)
+	}
+
+	log.Printf("Inserted event %+v to mongo, documentID: %s", event, id)
+	
+	return nil
 }
