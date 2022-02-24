@@ -4,7 +4,10 @@ import (
 	"context"
 	"day-trading/txserver/event"
 	"encoding/xml"
+	"strconv"
 	"log"
+	"errors"
+	"fmt"
 
 	//"os"
 	//"strings"
@@ -164,4 +167,47 @@ func handle(ctx *context.Context, command *Command) *Response{
 
 	response.Data = responseData
 	return response
+
+func VerifyAndParseRequestData(command *Command) error {
+	if command.Command == "" {
+		return errors.New("no command specified in the command message")
+	}
+
+	amountIntValue, AmountNotConvertibleToIntError := strconv.Atoi(fmt.Sprintf("%v",command.Amount))
+	usernameEmpty := command.Username == ""
+	stockSymbolEmpty := command.Stock == ""
+		
+
+	if command.Command == "ADD" && (command.Username == "" || AmountNotConvertibleToIntError != nil){
+		return errors.New("either the provided username is empty or the amount specified is not a number")
+	}
+
+	if (command.Command == "COMMIT_BUY" || command.Command == "CANCEL_BUY" || command.Command == "COMMIT_SELL" ||
+		command.Command == "CANCEL_SELL" || command.Command == "DISPLAY_SUMMARY") && (usernameEmpty) {
+		return errors.New("an empty Username was specified")
+	}
+
+	if (command.Command == "BUY" || command.Command == "SELL" || command.Command == "SET_BUY_AMOUNT" ||
+	 	command.Command == "SET_BUY_TRIGGER" || command.Command == "SET_SELL_AMOUNT" || command.Command == "SET_SELL_TRIGGER") && 
+		(usernameEmpty || stockSymbolEmpty || AmountNotConvertibleToIntError != nil) {
+		return errors.New("either the provided username is empty or the amount specified is not a number or a stockSymbol was not specified")
+	}
+
+	if command.Command == "QUOTE" || command.Command == "CANCEL_SET_BUY" || command.Command == "CANCEL_SET_SELL" &&
+		(usernameEmpty || stockSymbolEmpty) {
+		return errors.New("either the provided username is empty or the stockSymbol was not specified")
+	}
+
+	if command.Command == "DISPLAY_SUMMARY" && usernameEmpty {
+		return errors.New("username cannot be empty")
+	}
+
+	// setting Amount to an integer value so that it can be used in the rest of the code
+	if AmountNotConvertibleToIntError == nil {
+		command.Amount = amountIntValue
+	}
+
+	return nil
+
 }
+

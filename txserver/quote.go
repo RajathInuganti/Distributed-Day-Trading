@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 )
 
@@ -21,7 +22,7 @@ func quote_server_connect() net.Conn {
 }
 
 //Use for testing on UVic machine
-func get_qoute(username string, stock string) string {
+func get_quote(username string, stock string) string {
 
 	var conn net.Conn
 
@@ -30,19 +31,22 @@ func get_qoute(username string, stock string) string {
 		conn = quote_server_connect()
 	}
 
-	defer conn.Close()
-
 	_, err := conn.Write([]byte(stock + username))
 	if err != nil {
-		return get_qoute(username, stock)
+		return get_quote(username, stock)
 	}
 
 	result, err := ioutil.ReadAll(conn)
 	if err != nil || result == nil {
-		get_qoute(username, stock)
+		return get_quote(username, stock)
 	}
 
 	fmt.Println(string(result))
+
+	err = conn.Close()
+	if err != nil {
+		log.Fatalf("Unable to close connection with UVic Quote server")
+	}
 
 	return string(result)
 

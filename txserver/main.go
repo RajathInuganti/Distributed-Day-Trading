@@ -25,12 +25,12 @@ func consume(ctx *context.Context, ch *amqp.Channel) {
 	command := new(Command)
 
 	q, err := ch.QueueDeclare(
-		"rpc_queue", // name
-		false,       // durable
-		false,       // delete when unused
-		false,       // exclusive
-		false,       // no-wait
-		nil,         // arguments
+		"server", // name
+		false,    // durable
+		false,    // delete when unused
+		false,    // exclusive
+		false,    // no-wait
+		nil,      // arguments
 	)
 	failOnError("Failed to declare a queue", err)
 
@@ -52,49 +52,39 @@ func consume(ctx *context.Context, ch *amqp.Channel) {
 	)
 	failOnError("Failed to register a consumer", err)
 
-	forever := make(chan bool)
+	for message := range messages {
+		err := json.Unmarshal(message.Body, &command)
+		failOnError("Failed to unmarshal message body message", err)
 
-	go func() {
-		for message := range messages {
-			err := json.Unmarshal(message.Body, &command)
-			failOnError("Failed to unmarshal message body", err)
+		// need to called handler from here to handle the various commands
+		response := handle(ctx, command)
 
-			// need to called handler from here to handle the various commands
-			response := handle(ctx, command)
-			msgBody, err := json.Marshal(response)
-			failOnError("Failed to marshal message body", err)
+		msgBody, err := json.Marshal(response)
+		failOnError("Failed to marshal message body", err)
 
-			err = ch.Publish(
-				"",              // exchange
-				message.ReplyTo, // routing key
-				false,           // mandatory
-				false,           // immediate
-				amqp.Publishing{
-					ContentType:   "text/plain",
-					CorrelationId: message.CorrelationId,
-					Body:          msgBody,
-				})
-			failOnError("Failed to publish a message", err)
+		err = ch.Publish(
+			"",              // exchange
+			message.ReplyTo, // routing key
+			false,           // mandatory
+			false,           // immediate
+			amqp.Publishing{
+				ContentType:   "text/plain",
+				CorrelationId: message.CorrelationId,
+				Body:          msgBody,
+			})
+		failOnError("Failed to publish a message", err)
 
-			err = message.Ack(false)
-			failOnError("Failed to Acknowledge message", err)
-		}
-	}()
-
-	log.Printf(" [*] Awaiting RPC requests")
-	<-forever
-
+		err = message.Ack(false)
+		failOnError("Failed to Acknowledge message", err)
+	}
 }
 
 func main() {
 	ctx := context.Background()
 	ch := setup()
-	// setupDB()
-	// //addtoDb //For testing purposes 
+	setupDB()
+	//addtoDb //For testing purposes
 	consume(&ctx, ch)
-
-
-	
 }
 
 func setup() *amqp.Channel {
