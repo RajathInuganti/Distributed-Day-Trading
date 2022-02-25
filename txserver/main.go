@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/streadway/amqp"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -106,7 +107,17 @@ func setup() *amqp.Channel {
 
 func setupDB(ctx context.Context) (*mongo.Client, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(os.Getenv("MONGODB_URI")))
+	mongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI(os.Getenv("MONGODB_URI")))
 	failOnError("Error while connecting to MongoDB", err)
-	return client, cancel
+
+	//create Indexes here
+	Accounts := mongoClient.Database("test").Collection("Accounts")
+	model := mongo.IndexModel{
+		Keys:    bson.M{"username": 1},
+		Options: options.Index().SetUnique(true),
+	}
+	_, err = Accounts.Indexes().CreateOne(ctx, model)
+	failOnError("Account index creation with username failed", err)
+
+	return mongoClient, cancel
 }

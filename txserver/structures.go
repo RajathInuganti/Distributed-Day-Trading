@@ -12,3 +12,19 @@ type Response struct {
 	Data  []byte `json:"data"`
 	Error string `json:"error"`
 }
+
+type ParsingErrors struct {
+	usernameEmpty               bool
+	stockSymbolEmpty            bool
+	AmountNotConvertibleToFloat bool
+}
+
+type UserAccount struct {
+	username string             `bson:"username"`
+	balance  float32            `bson:"balance"`
+	created  int                `bson:"created"`
+	updated  int                `bson:"updated"`
+	buy      map[string]float32 `bson:"buy"`
+	sell     map[string]float32 `bson:"sell"`
+	stocks   map[string]float32 `bson:"stocks"`
+}
