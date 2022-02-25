@@ -16,11 +16,12 @@ services:
   #   volumes:
   #     - /var/run/docker.sock:/var/run/docker.sock
 
-  # mongodb_container:
-  #   image: mongo:alpine
+  # mongodb:
+  #   image: mongo:latest
+  #   container_name: mongodb
   #   restart: always
   #   ports:
-  #     - "27017:27017"
+  #     - 27017:27017
   #   volumes:
   #     - ~/apps/mongo:/data/db
   #   networks:
@@ -34,8 +35,14 @@ services:
       - rabbitmq
     networks:
       - txnetwork
+    command: sh -c "/wait && /src/main"
     environment:
       MONGODB_URI: ${MONGODB_URI}
+      WAIT_HOSTS: ${WAIT_HOSTS}
+      WAIT_HOSTS_TIMEOUT: ${WAIT_HOSTS_TIMEOUT}
+      WAIT_SLEEP_INTERVAL: ${WAIT_SLEEP_INTERVAL}
+      WAIT_HOST_CONNECT_TIMEOUT: ${WAIT_HOST_CONNECT_TIMEOUT}
+      WAIT_BEFORE_HOSTS: ${WAIT_BEFORE_HOSTS}
   
   webserver:
     build: webserver
@@ -47,6 +54,13 @@ services:
       - rabbitmq
     networks:
       - txnetwork
+    command: sh -c "/wait && /src/main"
+    environment:
+      WAIT_HOSTS: ${WAIT_HOSTS}
+      WAIT_HOSTS_TIMEOUT: ${WAIT_HOSTS_TIMEOUT}
+      WAIT_SLEEP_INTERVAL: ${WAIT_SLEEP_INTERVAL}
+      WAIT_HOST_CONNECT_TIMEOUT: ${WAIT_HOST_CONNECT_TIMEOUT}
+      WAIT_BEFORE_HOSTS: ${WAIT_BEFORE_HOSTS}
   
   rabbitmq:
     image: rabbitmq:3-management-alpine
