@@ -38,24 +38,24 @@ func (e *Event) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
 	}
 
 	switch e.EventType {
-	case "userCommand":
-		e.EventType = "userCommand"
+	case EventUserCommand:
+		e.EventType = EventUserCommand
 		e.Data = UserCommand{}
-	case "quoteServer":
-		e.EventType = "quoteServer"
+	case EventQuoteServer:
+		e.EventType = EventQuoteServer
 		e.Data = QuoteServer{}
-	case "accountTransaction":
-		e.EventType = "accountTransaction"
+	case EventAccountTransaction:
+		e.EventType = EventAccountTransaction
 		e.Data = AccountTransaction{}
-	case "systemEvent":
-		e.EventType = "systemEvent"
+	case EventSystem:
+		e.EventType = EventSystem
 		e.Data = SystemEvent{}
-	case "errorEvent":
-		e.EventType = "errorEvent"
+	case EventError:
+		e.EventType = EventError
 		e.Data = ErrorEvent{}
-	case "debugEvent":
-		e.EventType = "debug"
-		e.Data = Debug{}
+	case EventDebug:
+		e.EventType = EventDebug
+		e.Data = DebugEvent{}
 	}
 
 	err = rawData.Lookup("data").Unmarshal(e.Data)
