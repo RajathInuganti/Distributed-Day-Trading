@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"day-trading/txserver/event"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -227,10 +228,16 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 	return xmlEncoding, nil
 }
 
-func handle(ctx *context.Context, command *Command) *Response {
-	response := &Response{}
+func handle(ctx *context.Context, requestData []byte) *Response {
+	command := &Command{}
+	err := json.Unmarshal(requestData, command)
+		if err != nil {
+			log.Printf("Failed to unmarshal message: %+v", requestData)
+			return &Response{Data: []byte{}, Error: "Invalid data sent"}
+		}
 
-	err := verifyAndParseRequestData(command)
+	response := &Response{}
+	err = verifyAndParseRequestData(command)
 	if err != nil {
 		response.Error = err.Error()
 		logErrorEvent(ctx, time.Now().Unix(), 1, "server1", command.Command, command.Username, command.Stock, command.Filename, err.Error(), command.Amount)

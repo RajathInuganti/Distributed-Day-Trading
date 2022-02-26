@@ -55,11 +55,8 @@ func consume(ctx *context.Context, ch *amqp.Channel) {
 	failOnError("Failed to register a consumer", err)
 
 	for message := range messages {
-		err := json.Unmarshal(message.Body, &command)
-		failOnError("Failed to unmarshal message body message", err)
-
 		// need to called handler from here to handle the various commands
-		response := handle(ctx, command)
+		response := handle(ctx, message.Body)
 
 		msgBody, err := json.Marshal(response)
 		failOnError("Failed to marshal message body", err)
