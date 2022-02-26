@@ -106,18 +106,18 @@ func logDebugEvent(ctx *context.Context, timestamp, transactionNum int64,
 
 func insertEventToDB(ctx *context.Context, event *event.Event) {
 	eventsCollection := client.Database("test").Collection("events")
-	
+
 	maxAttempts := 5
-	for i:=1; i<=maxAttempts; i++ {
+	for i := 1; i <= maxAttempts; i++ {
 		_, err := eventsCollection.InsertOne(*ctx, event)
-		if err == nil{
+		if err == nil {
 			return
 		}
 
 		log.Printf("Error inserting event to DB: %v, err: %s, attempt: %d", event, err, i)
 		if i == maxAttempts {
 			log.Printf("Failed to insert data to DB after %d attempts", maxAttempts)
-			return 
+			return
 		}
 		time.Sleep(time.Minute)
 	}

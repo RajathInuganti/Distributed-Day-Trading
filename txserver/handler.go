@@ -41,11 +41,64 @@ var handlerMap = map[string]func(*context.Context, *Command) ([]byte, error){
 }
 
 func add(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, err
+	}
+	account.balance = account.balance + command.Amount
+
+	Accounts := client.Database("test").Collection("Accounts")
+	opts := options.Update().SetUpsert(true)
+	filter := bson.M{"username": command.Username}
+
+	result, err := Accounts.UpdateOne(context.TODO(), filter, account, opts)
+
+	if err != nil {
+		return nil, errors.New("account update unsucessful")
+	}
+
+	if result.MatchedCount == 1 {
+		return []byte("account balance updated"), nil
+	}
+
+	//logAccountTransactionEvent(ctx, time.Now().Unix(), 1, "server1", command.Command, command.Username, new_balance)
+
+	return nil, errors.New("account update unsucessful")
+
 }
 
 func commit_buy(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	buy_map := account.buy
+	//stocks_map := account.stocks
+
+	time_elapsed := float32(time.Now().Unix()) - buy_map["timestamp"]
+
+	if time_elapsed <= 60 {
+		account.balance = account.balance - buy_map["stock_price"]
+
+		Accounts := client.Database("test").Collection("Accounts")
+		opts := options.Update().SetUpsert(true)
+		filter := bson.M{"username": command.Username}
+
+		result, err := Accounts.UpdateOne(context.TODO(), filter, account, opts)
+
+		if err != nil {
+			return nil, errors.New("commit buy unsuccessful")
+		}
+
+		if result.MatchedCount == 1 {
+			return []byte("commit buy executed"), nil
+		}
+
+		return nil, errors.New("commit buy unsuccessful")
+	}
+
+	return nil, errors.New("commit buy unsuccessful")
 }
 
 func cancel_buy(ctx *context.Context, command *Command) ([]byte, error) {
@@ -65,7 +118,33 @@ func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func buy(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	buy_map := account.buy
+	buy_map["stock_price"] = command.Amount
+	buy_map["timestamp"] = float32(time.Now().Unix())
+	account.buy = buy_map
+
+	Accounts := client.Database("test").Collection("Accounts")
+	opts := options.Update().SetUpsert(true)
+	filter := bson.M{"username": command.Username}
+
+	result, err := Accounts.UpdateOne(context.TODO(), filter, account, opts)
+
+	if err != nil {
+		return nil, errors.New("buy command unsuccessful")
+	}
+
+	if result.MatchedCount == 1 {
+		return []byte("buy command executed"), nil
+	}
+
+	//logAccountTransactionEvent(ctx, time.Now().Unix(), 1, "server1", command.Command, command.Username, command.Amount)
+
+	return nil, errors.New("buy command unsuccessful")
 }
 
 func sell(ctx *context.Context, command *Command) ([]byte, error) {
@@ -238,10 +317,10 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 func handle(ctx *context.Context, requestData []byte) *Response {
 	command := &Command{}
 	err := json.Unmarshal(requestData, command)
-		if err != nil {
-			log.Printf("Failed to unmarshal message: %+v", requestData)
-			return &Response{Data: []byte{}, Error: "Invalid data sent"}
-		}
+	if err != nil {
+		log.Printf("Failed to unmarshal message: %+v", requestData)
+		return &Response{Data: []byte{}, Error: "Invalid data sent"}
+	}
 
 	response := &Response{}
 	err = verifyAndParseRequestData(command)
