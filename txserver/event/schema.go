@@ -7,6 +7,15 @@ import (
 	"go.mongodb.org/mongo-driver/bson/bsontype"
 )
 
+const (
+	EventUserCommand = "userCommand"
+	EventQuoteServer = "quoteServer"
+	EventAccountTransaction = "accountTransaction"
+	EventSystem = "systemEvent"
+	EventError = "errorEvent"
+	EventDebug = "debugEvent"
+)
+
 // Event struct describes any 'event' that occurs in the system (any of UserCommand, QuoteServer, AccountTransaction, SystemEvent, ErrorEvent)
 type Event struct {
 	EventType string      `bson:"eventType"`
@@ -60,9 +69,9 @@ func (e *Event) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
 
 // UserCommand: Any command issued by the user
 type UserCommand struct {
-	Timestamp      int64     `xml:"timestamp"`
+	Timestamp      int64   `xml:"timestamp"`
 	Server         string  `xml:"server"`
-	TransactionNum int     `xml:"transactionNum"`
+	TransactionNum int64     `xml:"transactionNum"`
 	Command        string  `xml:"command"`
 	Username       string  `xml:"username"`
 	StockSymbol    string  `xml:"stockSymbol"`
@@ -74,7 +83,7 @@ type UserCommand struct {
 type QuoteServer struct {
 	Timestamp       int64     `xml:"timestamp"`
 	Server          string  `xml:"server"`
-	TransactionNum  int     `xml:"transactionNum"`
+	TransactionNum  int64     `xml:"transactionNum"`
 	Price           float64 `xml:"price"`
 	StockSymbol     string  `xml:"stockSymbol"`
 	Username        string  `xml:"username"`
@@ -86,7 +95,7 @@ type QuoteServer struct {
 type AccountTransaction struct {
 	Timestamp      int64     `xml:"timestamp"`
 	Server         string  `xml:"server"`
-	TransactionNum int     `xml:"transactionNum"`
+	TransactionNum int64     `xml:"transactionNum"`
 	Action         string  `xml:"action"`
 	Username       string  `xml:"username"`
 	Funds          float64 `xml:"funds"`
@@ -96,7 +105,7 @@ type AccountTransaction struct {
 type SystemEvent struct {
 	Timestamp      int64     `xml:"timestamp"`
 	Server         string  `xml:"server"`
-	TransactionNum int     `xml:"transactionNum"`
+	TransactionNum int64     `xml:"transactionNum"`
 	Command        string  `xml:"command"`
 	Username       string  `xml:"username"`
 	StockSymbol    string  `xml:"stockSymbol"`
@@ -108,7 +117,7 @@ type SystemEvent struct {
 type ErrorEvent struct {
 	Timestamp      int64     `xml:"timestamp"`
 	Server         string  `xml:"server"`
-	TransactionNum int     `xml:"transactionNum"`
+	TransactionNum int64     `xml:"transactionNum"`
 	Command        string  `xml:"command"`
 	Username       string  `xml:"username"`
 	StockSymbol    string  `xml:"stockSymbol"`
@@ -121,7 +130,7 @@ type ErrorEvent struct {
 type Debug struct {
 	Timestamp      int64     `xml:"timestamp"`
 	Server         string  `xml:"server"`
-	TransactionNum int     `xml:"transactionNum"`
+	TransactionNum int64     `xml:"transactionNum"`
 	Command        string  `xml:"command"`
 	Username       string  `xml:"username"`
 	StockSymbol    string  `xml:"stockSymbol"`
