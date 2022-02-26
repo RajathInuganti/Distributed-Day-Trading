@@ -21,6 +21,7 @@ func logUserCommandEvent(
 		Funds:          funds,
 	}
 	event := &event.Event{EventType: event.EventUserCommand, Data: data}
+	insertEventToDB(ctx, event)
 	return nil
 }
 
@@ -36,6 +37,7 @@ func logQuoteServerEvent(ctx *context.Context, timestamp, transactionNum int64,
 		Cryptokey:       cryptokey,
 	}
 	event := &event.Event{EventType: event.EventQuoteServer, Data: data}
+	insertEventToDB(ctx, event)
 	return nil
 }
 
@@ -50,6 +52,7 @@ func logAccountTransactionEvent(ctx *context.Context, timestamp, transactionNum 
 		Funds:          funds,
 	}
 	event := &event.Event{EventType: event.EventAccountTransaction, Data: data}
+	insertEventToDB(ctx, event)
 	return nil
 }
 
@@ -66,6 +69,7 @@ func logSystemEvent(ctx *context.Context, timestamp, transactionNum int64,
 		Funds:          funds,
 	}
 	event := &event.Event{EventType: event.EventSystem, Data: data}
+	insertEventToDB(ctx, event)
 	return nil
 }
 
@@ -83,6 +87,7 @@ func logErrorEvent(ctx *context.Context, timestamp, transactionNum int64,
 		Funds:          funds,
 	}
 	event := &event.Event{EventType: event.EventError, Data: data}
+	insertEventToDB(ctx, event)
 	return nil
 }
 
@@ -101,36 +106,25 @@ func logDebugEvent(ctx *context.Context, timestamp, transactionNum int64,
 	}
 
 	event := &event.Event{EventType: event.EventDebug, Data: data}
+	insertEventToDB(ctx, event)
 	return nil
 }
 
-func insertEventToDB(ctx *context.Context, event *event.Event) error {
+func insertEventToDB(ctx *context.Context, event *event.Event) {
 	eventsCollection := mongoClient.Database("test").Collection("events")
-	_, err := eventsCollection.InsertOne(*ctx, event)
-	if err != nil {
-		log.Printf("Error inserting event to DB: %v, err: %s", event, err)
-		return err
-	}
-	return nil
-}
-
-func retry(ctx *context.Context, maxAttempts int, sleep time.Duration, f func(ctx *context.Context, event *event.Event) error, event *event.Event) error {
-	for i:= 1; i <= maxAttempts ; i++ {
-		err := f(ctx, event)
-		if err == nil {
-			return nil
+	
+	maxAttempts := 5
+	for i:=1; i<=maxAttempts; i++ {
+		_, err := eventsCollection.InsertOne(*ctx, event)
+		if err == nil{
+			return
 		}
 
-		if maxAttempts == i {
-			log.Printf("couldn't insert event to DB after %d attempts", i)
-			return err
+		log.Printf("Error inserting event to DB: %v, err: %s, attempt: %d", event, err, i)
+		if i == maxAttempts {
+			log.Printf("Failed to insert data to DB after %d attempts", maxAttempts)
+			return 
 		}
-		
-		log.Printf("retry() failed attempt %d: %s", i, err)
-		time.Sleep(sleep)
-		sleep *= 2
-		continue
+		time.Sleep(time.Minute)
 	}
-
-	return nil
 }
