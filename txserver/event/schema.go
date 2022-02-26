@@ -87,7 +87,7 @@ type QuoteServer struct {
 	Price           float64 `xml:"price"`
 	StockSymbol     string  `xml:"stockSymbol"`
 	Username        string  `xml:"username"`
-	QuoteServerTime int     `xml:"quoteServerTime"`
+	QuoteServerTime int64     `xml:"quoteServerTime"`
 	Cryptokey       string  `xml:"cryptokey"`
 }
 
@@ -127,7 +127,7 @@ type ErrorEvent struct {
 }
 
 // Debug: debug logs for ourselves
-type Debug struct {
+type DebugEvent struct {
 	Timestamp      int64     `xml:"timestamp"`
 	Server         string  `xml:"server"`
 	TransactionNum int64     `xml:"transactionNum"`

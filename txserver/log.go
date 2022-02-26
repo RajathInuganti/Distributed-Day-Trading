@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"day-trading/txserver/event"
+	"log"
+	"time"
 )
 
 func logUserCommandEvent(
@@ -102,3 +104,33 @@ func logDebugEvent(ctx *context.Context, timestamp, transactionNum int64,
 	return nil
 }
 
+func insertEventToDB(ctx *context.Context, event *event.Event) error {
+	eventsCollection := mongoClient.Database("test").Collection("events")
+	_, err := eventsCollection.InsertOne(*ctx, event)
+	if err != nil {
+		log.Printf("Error inserting event to DB: %v, err: %s", event, err)
+		return err
+	}
+	return nil
+}
+
+func retry(ctx *context.Context, maxAttempts int, sleep time.Duration, f func(ctx *context.Context, event *event.Event) error, event *event.Event) error {
+	for i:= 1; i <= maxAttempts ; i++ {
+		err := f(ctx, event)
+		if err == nil {
+			return nil
+		}
+
+		if maxAttempts == i {
+			log.Printf("couldn't insert event to DB after %d attempts", i)
+			return err
+		}
+		
+		log.Printf("retry() failed attempt %d: %s", i, err)
+		time.Sleep(sleep)
+		sleep *= 2
+		continue
+	}
+
+	return nil
+}
