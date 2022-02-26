@@ -28,3 +28,11 @@ type UserAccount struct {
 	sell     map[string]float32 `bson:"sell"`
 	stocks   map[string]float32 `bson:"stocks"`
 }
+
+type Transaction struct {
+	TransactionNum int     `bson:"transactionNum"`
+	Username       string  `bson:"username"`
+	Stock          string  `bson:"stock"`
+	Amount         float32 `bson:"amount"`
+	command        string  `bson:"command"`
+}

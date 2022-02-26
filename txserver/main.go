@@ -114,5 +114,9 @@ func setupDB(ctx context.Context) (*mongo.Client, context.CancelFunc) {
 	_, err = Accounts.Indexes().CreateOne(ctx, model)
 	failOnError("Account index creation with username failed", err)
 
+	_ = mongoClient.Database("test").Collection("Events")
+
+	_ = mongoClient.Database("test").Collection("Transactions")
+
 	return mongoClient, cancel
 }
