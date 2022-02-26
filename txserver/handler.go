@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"day-trading/txserver/event"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	//"os"
 	//"strings"
@@ -98,9 +100,9 @@ func set_buy_amount(ctx *context.Context, command *Command) ([]byte, error) {
 		account.buy[command.Stock] = 0
 	}
 
-	if account.balance >= command.Amount.(float32) {
-		account.balance = account.balance - command.Amount.(float32)
-		account.buy[command.Stock] = command.Amount.(float32)
+	if account.balance >= command.Amount {
+		account.balance = account.balance - command.Amount
+		account.buy[command.Stock] = command.Amount
 
 		opts := options.Update().SetUpsert(true)
 		filter := bson.M{"username": command.Username}
@@ -134,9 +136,9 @@ func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
 		account.sell[command.Stock] = 0
 	}
 
-	if account.stocks[command.Stock] >= command.Amount.(float32) {
-		account.stocks[command.Stock] = account.stocks[command.Stock] - command.Amount.(float32)
-		account.sell[command.Stock] = command.Amount.(float32)
+	if account.stocks[command.Stock] >= command.Amount {
+		account.stocks[command.Stock] = account.stocks[command.Stock] - command.Amount
+		account.sell[command.Stock] = command.Amount
 
 		opts := options.Update().SetUpsert(true)
 		filter := bson.M{"username": command.Username}
@@ -178,7 +180,7 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 	var err error
 	if command.Username != "" {
 		// get events for specified user
-		filter := bson.M{"username": command.Username}
+		filter := bson.M{"data.username": command.Username}
 		cursor, err = eventCollection.Find(*ctx, filter)
 		if err != nil {
 			log.Printf("Error getting events from the Events collection for the user %s, query: %+v %s", command.Username, filter, err)
@@ -226,19 +228,29 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 	return xmlEncoding, nil
 }
 
-func handle(ctx *context.Context, command *Command) *Response {
-	response := &Response{}
+func handle(ctx *context.Context, requestData []byte) *Response {
+	command := &Command{}
+	err := json.Unmarshal(requestData, command)
+		if err != nil {
+			log.Printf("Failed to unmarshal message: %+v", requestData)
+			return &Response{Data: []byte{}, Error: "Invalid data sent"}
+		}
 
-	err := verifyAndParseRequestData(command)
+	response := &Response{}
+	err = verifyAndParseRequestData(command)
 	if err != nil {
 		response.Error = err.Error()
+		logErrorEvent(ctx, time.Now().Unix(), 1, "server1", command.Command, command.Username, command.Stock, command.Filename, err.Error(), command.Amount)
 		return response
 	}
+
+	logUserCommandEvent(ctx, time.Now().Unix(), 1, "server1", command.Command, command.Username, command.Stock, command.Filename, command.Amount)
 
 	responseData, err := handlerMap[command.Command](ctx, command)
 	if err != nil {
 		log.Printf("Error handling command %+v, error: %s", command, err)
 		response.Error = err.Error()
+		logErrorEvent(ctx, time.Now().Unix(), 1, "server1", command.Command, command.Username, command.Stock, command.Filename, err.Error(), command.Amount)
 		return response
 	}
 
@@ -260,7 +272,7 @@ func verifyAndParseRequestData(command *Command) error {
 
 	// setting Amount to an integer value so that it can be used in the rest of the code
 	if AmountNotConvertibleToFloatError == nil {
-		command.Amount = amountFloatValue
+		command.Amount = float32(amountFloatValue)
 		return nil
 	}
 
