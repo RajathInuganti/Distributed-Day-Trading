@@ -14,14 +14,12 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-const (
-	CONN_HOST = "192.168.4.2"
-	CONN_PORT = 4444
-)
+var parseErrors ParsingErrors
 
-var handlerMap = map[string]func(*context.Context, *Command) ([]byte, error) {
+var handlerMap = map[string]func(*context.Context, *Command) ([]byte, error){
 	"ADD":              add,
 	"COMMIT_BUY":       commit_buy,
 	"CANCEL_BUY":       cancel_buy,
@@ -60,16 +58,64 @@ func cancel_sell(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func buy(ctx *context.Context, command *Command) ([]byte, error)  {
+func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func sell(ctx *context.Context, command *Command) ([]byte, error)  {
+func buy(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte{}, nil
+}
+
+func sell(ctx *context.Context, command *Command) ([]byte, error) {
+	return []byte{}, nil
+}
+
+func find_account(ctx *context.Context, command *Command) (UserAccount, *mongo.Collection, error) {
+	var account UserAccount
+
+	if parseErrors.stockSymbolEmpty || parseErrors.usernameEmpty || parseErrors.AmountNotConvertibleToFloat {
+		return account, nil, errors.New("insufficient information")
+	}
+
+	Accounts := client.Database("test").Collection("Accounts")
+	err := Accounts.FindOne(*ctx, bson.M{"username": command.Username}).Decode(&account)
+	if err != nil {
+		return account, nil, errors.New("account not found")
+	}
+
+	return account, Accounts, nil
 }
 
 func set_buy_amount(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+
+	account, Accounts, err := find_account(ctx, command)
+	if err != nil {
+		return nil, err
+	}
+
+	if account.buy[command.Stock] > 0 {
+		account.balance = account.balance + account.buy[command.Stock]
+		account.buy[command.Stock] = 0
+	}
+
+	if account.balance >= command.Amount.(float32) {
+		account.balance = account.balance - command.Amount.(float32)
+		account.buy[command.Stock] = command.Amount.(float32)
+
+		opts := options.Update().SetUpsert(true)
+		filter := bson.M{"username": command.Username}
+
+		result, err := Accounts.UpdateOne(context.TODO(), filter, account, opts)
+		if err != nil {
+			return nil, errors.New("account update unsuccessful")
+		}
+
+		if result.MatchedCount == 1 {
+			return []byte("Buy amount allocated"), nil
+		}
+	}
+
+	return nil, errors.New("not enough account balance")
 }
 
 func set_buy_trigger(ctx *context.Context, command *Command) ([]byte, error) {
@@ -77,14 +123,42 @@ func set_buy_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+
+	account, Accounts, err := find_account(ctx, command)
+	if err != nil {
+		return nil, err
+	}
+
+	if account.sell[command.Stock] > 0 {
+		account.stocks[command.Stock] = account.stocks[command.Stock] + account.sell[command.Stock]
+		account.sell[command.Stock] = 0
+	}
+
+	if account.stocks[command.Stock] >= command.Amount.(float32) {
+		account.stocks[command.Stock] = account.stocks[command.Stock] - command.Amount.(float32)
+		account.sell[command.Stock] = command.Amount.(float32)
+
+		opts := options.Update().SetUpsert(true)
+		filter := bson.M{"username": command.Username}
+
+		result, err := Accounts.UpdateOne(context.TODO(), filter, account, opts)
+		if err != nil {
+			return nil, errors.New("account update unsuccessful")
+		}
+
+		if result.MatchedCount == 1 {
+			return []byte("Sell amount allocated"), nil
+		}
+	}
+
+	return nil, errors.New("not enough stock balance")
 }
 
 func set_sell_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func quote(ctx *context.Context, command *Command) ([]byte,error)  {
+func quote(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte{}, nil
 }
 
@@ -96,19 +170,15 @@ func cancel_set_sell(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
-}
-
-func dumplog(ctx *context.Context, command *Command) ([]byte,error) {
-	eventCollection := mongoClient.Database("test").Collection("Events")
+func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
+	eventCollection := client.Database("test").Collection("Events")
 
 	// fetch results from mongo
 	var cursor *mongo.Cursor
 	var err error
 	if command.Username != "" {
 		// get events for specified user
-		filter := bson.M{"user": command.Username}
+		filter := bson.M{"username": command.Username}
 		cursor, err = eventCollection.Find(*ctx, filter)
 		if err != nil {
 			log.Printf("Error getting events from the Events collection for the user %s, query: %+v %s", command.Username, filter, err)
@@ -130,9 +200,9 @@ func dumplog(ctx *context.Context, command *Command) ([]byte,error) {
 	for cursor.Next(*ctx) {
 		event := &event.Event{}
 		err := cursor.Decode(event)
-		if err != nil { 
+		if err != nil {
 			log.Printf("Error while decoding a mongo doc into go struct. : %v ", cursor.Current)
-			continue 
+			continue
 			// not sure if this continue statement will work
 		}
 
@@ -144,7 +214,7 @@ func dumplog(ctx *context.Context, command *Command) ([]byte,error) {
 		}
 
 		xmlEncoding = append(xmlEncoding, eventBytes...)
-		xmlEncoding = append(xmlEncoding, []byte("\n")...)	
+		xmlEncoding = append(xmlEncoding, []byte("\n")...)
 	}
 	if err := cursor.Err(); err != nil {
 		panic(err)
@@ -156,8 +226,15 @@ func dumplog(ctx *context.Context, command *Command) ([]byte,error) {
 	return xmlEncoding, nil
 }
 
-func handle(ctx *context.Context, command *Command) *Response{
+func handle(ctx *context.Context, command *Command) *Response {
 	response := &Response{}
+
+	err := verifyAndParseRequestData(command)
+	if err != nil {
+		response.Error = err.Error()
+		return response
+	}
+
 	responseData, err := handlerMap[command.Command](ctx, command)
 	if err != nil {
 		log.Printf("Error handling command %+v, error: %s", command, err)
@@ -169,46 +246,24 @@ func handle(ctx *context.Context, command *Command) *Response{
 	return response
 }
 
-func VerifyAndParseRequestData(command *Command) error {
+func verifyAndParseRequestData(command *Command) error {
 	if command.Command == "" {
-		return errors.New("no command specified in the command message")
+		return errors.New("no command specified")
 	}
 
-	amountIntValue, AmountNotConvertibleToIntError := strconv.Atoi(fmt.Sprintf("%v",command.Amount))
+	amountFloatValue, AmountNotConvertibleToFloatError := strconv.ParseFloat(fmt.Sprintf("%v", command.Amount), 32)
 	usernameEmpty := command.Username == ""
 	stockSymbolEmpty := command.Stock == ""
-		
 
-	if command.Command == "ADD" && (command.Username == "" || AmountNotConvertibleToIntError != nil){
-		return errors.New("either the provided username is empty or the amount specified is not a number")
-	}
-
-	if (command.Command == "COMMIT_BUY" || command.Command == "CANCEL_BUY" || command.Command == "COMMIT_SELL" ||
-		command.Command == "CANCEL_SELL" || command.Command == "DISPLAY_SUMMARY") && (usernameEmpty) {
-		return errors.New("an empty Username was specified")
-	}
-
-	if (command.Command == "BUY" || command.Command == "SELL" || command.Command == "SET_BUY_AMOUNT" ||
-	 	command.Command == "SET_BUY_TRIGGER" || command.Command == "SET_SELL_AMOUNT" || command.Command == "SET_SELL_TRIGGER") && 
-		(usernameEmpty || stockSymbolEmpty || AmountNotConvertibleToIntError != nil) {
-		return errors.New("either the provided username is empty or the amount specified is not a number or a stockSymbol was not specified")
-	}
-
-	if command.Command == "QUOTE" || command.Command == "CANCEL_SET_BUY" || command.Command == "CANCEL_SET_SELL" &&
-		(usernameEmpty || stockSymbolEmpty) {
-		return errors.New("either the provided username is empty or the stockSymbol was not specified")
-	}
-
-	if command.Command == "DISPLAY_SUMMARY" && usernameEmpty {
-		return errors.New("username cannot be empty")
-	}
+	parseErrors.usernameEmpty = usernameEmpty
+	parseErrors.stockSymbolEmpty = stockSymbolEmpty
 
 	// setting Amount to an integer value so that it can be used in the rest of the code
-	if AmountNotConvertibleToIntError == nil {
-		command.Amount = amountIntValue
+	if AmountNotConvertibleToFloatError == nil {
+		command.Amount = amountFloatValue
+		return nil
 	}
 
+	parseErrors.AmountNotConvertibleToFloat = true
 	return nil
-
 }
-
