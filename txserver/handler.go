@@ -178,7 +178,7 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 	var err error
 	if command.Username != "" {
 		// get events for specified user
-		filter := bson.M{"username": command.Username}
+		filter := bson.M{"data.username": command.Username}
 		cursor, err = eventCollection.Find(*ctx, filter)
 		if err != nil {
 			log.Printf("Error getting events from the Events collection for the user %s, query: %+v %s", command.Username, filter, err)

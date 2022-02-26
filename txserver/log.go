@@ -9,7 +9,7 @@ import (
 
 func logUserCommandEvent(
 	ctx *context.Context, timestamp, transactionNum int64,
-	server, command, username, stock, filename string, funds float64) error {
+	server, command, username, stock, filename string, funds float32) error {
 	data := &event.UserCommand{
 		Timestamp:      timestamp,
 		Server:         server,
@@ -42,7 +42,7 @@ func logQuoteServerEvent(ctx *context.Context, timestamp, transactionNum int64,
 }
 
 func logAccountTransactionEvent(ctx *context.Context, timestamp, transactionNum int64,
-	server, action, username string, funds float64) error {
+	server, action, username string, funds float32) error {
 	data := &event.AccountTransaction{
 		Timestamp:      timestamp,
 		Server:         server,
@@ -57,7 +57,7 @@ func logAccountTransactionEvent(ctx *context.Context, timestamp, transactionNum 
 }
 
 func logSystemEvent(ctx *context.Context, timestamp, transactionNum int64,
-	server, command, username, stock, filename string, funds float64) error {
+	server, command, username, stock, filename string, funds float32) error {
 	data := &event.SystemEvent{
 		Timestamp:      timestamp,
 		Server:         server,
@@ -74,7 +74,7 @@ func logSystemEvent(ctx *context.Context, timestamp, transactionNum int64,
 }
 
 func logErrorEvent(ctx *context.Context, timestamp, transactionNum int64,
-	server, command, username, stock, filename, errorMsg string, funds float64) error {
+	server, command, username, stock, filename, errorMsg string, funds float32) error {
 	data := &event.ErrorEvent{
 		Timestamp:      timestamp,
 		Server:         server,
@@ -92,7 +92,7 @@ func logErrorEvent(ctx *context.Context, timestamp, transactionNum int64,
 }
 
 func logDebugEvent(ctx *context.Context, timestamp, transactionNum int64,
-	server, command, username, stock, filename, debugMsg string, funds float64) error {
+	server, command, username, stock, filename, debugMsg string, funds float32) error {
 	data := &event.DebugEvent{
 		Timestamp:      timestamp,
 		Server:         server,
@@ -111,7 +111,7 @@ func logDebugEvent(ctx *context.Context, timestamp, transactionNum int64,
 }
 
 func insertEventToDB(ctx *context.Context, event *event.Event) {
-	eventsCollection := mongoClient.Database("test").Collection("events")
+	eventsCollection := client.Database("test").Collection("events")
 	
 	maxAttempts := 5
 	for i:=1; i<=maxAttempts; i++ {
