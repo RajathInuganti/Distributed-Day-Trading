@@ -24,8 +24,6 @@ func failOnError(message string, err error) {
 
 func consume(ctx *context.Context, ch *amqp.Channel) {
 
-	command := new(Command)
-
 	q, err := ch.QueueDeclare(
 		"server", // name
 		false,    // durable

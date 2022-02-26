@@ -9,7 +9,7 @@ import (
 
 func logUserCommandEvent(
 	ctx *context.Context, timestamp, transactionNum int64,
-	server, command, username, stock, filename string, funds float32) error {
+	server, command, username, stock, filename string, funds float32) {
 	data := &event.UserCommand{
 		Timestamp:      timestamp,
 		Server:         server,
@@ -22,11 +22,10 @@ func logUserCommandEvent(
 	}
 	event := &event.Event{EventType: event.EventUserCommand, Data: data}
 	insertEventToDB(ctx, event)
-	return nil
 }
 
 func logQuoteServerEvent(ctx *context.Context, timestamp, transactionNum int64,
-	server, stock, username, cryptokey string, quoteServerTime int64) error {
+	server, stock, username, cryptokey string, quoteServerTime int64) {
 	data := &event.QuoteServer{
 		Timestamp:       timestamp,
 		Server:          server,
@@ -38,11 +37,10 @@ func logQuoteServerEvent(ctx *context.Context, timestamp, transactionNum int64,
 	}
 	event := &event.Event{EventType: event.EventQuoteServer, Data: data}
 	insertEventToDB(ctx, event)
-	return nil
 }
 
 func logAccountTransactionEvent(ctx *context.Context, timestamp, transactionNum int64,
-	server, action, username string, funds float32) error {
+	server, action, username string, funds float32) {
 	data := &event.AccountTransaction{
 		Timestamp:      timestamp,
 		Server:         server,
@@ -53,11 +51,10 @@ func logAccountTransactionEvent(ctx *context.Context, timestamp, transactionNum 
 	}
 	event := &event.Event{EventType: event.EventAccountTransaction, Data: data}
 	insertEventToDB(ctx, event)
-	return nil
 }
 
 func logSystemEvent(ctx *context.Context, timestamp, transactionNum int64,
-	server, command, username, stock, filename string, funds float32) error {
+	server, command, username, stock, filename string, funds float32) {
 	data := &event.SystemEvent{
 		Timestamp:      timestamp,
 		Server:         server,
@@ -70,11 +67,10 @@ func logSystemEvent(ctx *context.Context, timestamp, transactionNum int64,
 	}
 	event := &event.Event{EventType: event.EventSystem, Data: data}
 	insertEventToDB(ctx, event)
-	return nil
 }
 
 func logErrorEvent(ctx *context.Context, timestamp, transactionNum int64,
-	server, command, username, stock, filename, errorMsg string, funds float32) error {
+	server, command, username, stock, filename, errorMsg string, funds float32) {
 	data := &event.ErrorEvent{
 		Timestamp:      timestamp,
 		Server:         server,
@@ -88,11 +84,10 @@ func logErrorEvent(ctx *context.Context, timestamp, transactionNum int64,
 	}
 	event := &event.Event{EventType: event.EventError, Data: data}
 	insertEventToDB(ctx, event)
-	return nil
 }
 
 func logDebugEvent(ctx *context.Context, timestamp, transactionNum int64,
-	server, command, username, stock, filename, debugMsg string, funds float32) error {
+	server, command, username, stock, filename, debugMsg string, funds float32) {
 	data := &event.DebugEvent{
 		Timestamp:      timestamp,
 		Server:         server,
@@ -107,7 +102,6 @@ func logDebugEvent(ctx *context.Context, timestamp, transactionNum int64,
 
 	event := &event.Event{EventType: event.EventDebug, Data: data}
 	insertEventToDB(ctx, event)
-	return nil
 }
 
 func insertEventToDB(ctx *context.Context, event *event.Event) {
