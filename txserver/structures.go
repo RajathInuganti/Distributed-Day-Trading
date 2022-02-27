@@ -35,14 +35,32 @@ type ParsingErrors struct {
 	AmountNotConvertibleToFloat bool
 }
 
+type Transaction struct {
+	ID              int64   `json:"transactionNum"`
+	Timestamp       int64   `json:"timestamp"`
+	TransactionType string  `json:"transactionType"`
+	Amount          float32 `json:"amount"`
+	Stock           string  `json:"stock"`
+}
+
 type UserAccount struct {
-	username string             `bson:"username"`
-	balance  float32            `bson:"balance"`
-	created  int                `bson:"created"`
-	updated  int                `bson:"updated"`
-	buy      map[string]float32 `bson:"buy"`
-	sell     map[string]float32 `bson:"sell"`
-	stocks   map[string]float32 `bson:"stocks"`
+	username       string                        `bson:"username"`
+	balance        float32                       `bson:"balance"`
+	created        int                           `bson:"created"`
+	updated        int                           `bson:"updated"`
+	setBuyAmounts  map[string]float32            `bson:"buy"`
+	setSellAmounts map[string]float32            `bson:"sell"`
+	buyTriggers    map[string]map[float32]string `bson:"buyTriggers"`
+	sellTriggers   map[string]map[float32]string `bson:"sellTriggers"`
+	stocks         map[string]float32            `bson:"stocks"`
+	transactions   []*Transaction                `bson:"transactions"`
+	recentBuy      *CommandHistory               `bson:"recentBuy"`
+	recentSell     *CommandHistory               `bson:"recentSell"`
+}
+
+type CommandHistory struct {
+	Timestamp int64   `bson:"timestamp"`
+	Amount    float32 `bson:"amount"`
 }
 
 // Event struct describes any 'event' that occurs in the system (any of UserCommand, QuoteServer, AccountTransaction, SystemEvent, ErrorEvent)

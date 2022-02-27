@@ -22,7 +22,7 @@ type Command struct {
 }
 
 type Response struct {
-	Data []byte `json:"data"`
+	Data  []byte `json:"data"`
 	Error string `json:"error"`
 }
 
@@ -96,7 +96,7 @@ func HandleCommand(command *Command) error {
 	return nil
 }
 
-func HandleResponse(cmd *Command, res *http.Response) error { 
+func HandleResponse(cmd *Command, res *http.Response) error {
 	log.Printf("Got response: %s for %+v", res.Status, cmd)
 
 	bodyBytes, err := ioutil.ReadAll(res.Body)
@@ -109,7 +109,7 @@ func HandleResponse(cmd *Command, res *http.Response) error {
 
 	responseStruct := &Response{}
 	err = json.Unmarshal(bodyBytes, responseStruct)
-	if err != nil { 
+	if err != nil {
 		log.Printf("Error while unmarshalling response body: %s\n", err)
 		return err
 	}
@@ -121,14 +121,14 @@ func HandleResponse(cmd *Command, res *http.Response) error {
 
 	if cmd.Command == "DUMPLOG" {
 		err = ioutil.WriteFile(cmd.Filename, responseStruct.Data, 0444)
-		if err != nil { 
+		if err != nil {
 			log.Printf("Error while writing response body to file: %s\n", err)
 			return err
 		}
 		fmt.Printf("Contents successfully written to %s\n", cmd.Filename)
 		return nil
 	}
-	
+
 	// For DISPLAY_SUMMARY or other commands
 	fmt.Printf("%s\n", string(responseStruct.Data))
 	return nil
@@ -155,14 +155,13 @@ func main() {
 
 		fmt.Printf("iteration: %d requestData: %#v\n", i+1, requestData)
 
-		
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		err = HandleCommand(requestData)
-		if err != nil { 
-			log.Printf("Error while handling command %+v: %s\n", requestData, err) 
+		if err != nil {
+			log.Printf("Error while handling command %+v: %s\n", requestData, err)
 		}
 	}
 
