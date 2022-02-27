@@ -98,14 +98,14 @@ func set_buy_amount(ctx *context.Context, command *Command) ([]byte, error) {
 		return nil, err
 	}
 
-	if account.buy[command.Stock] > 0 {
-		account.balance = account.balance + account.buy[command.Stock]
-		account.buy[command.Stock] = 0
+	if account.BuyAmounts[command.Stock] > 0 {
+		account.Balance = account.Balance + account.BuyAmounts[command.Stock]
+		account.BuyAmounts[command.Stock] = 0
 	}
 
-	if account.balance >= command.Amount {
-		account.balance = account.balance - command.Amount
-		account.buy[command.Stock] = command.Amount
+	if account.Balance >= command.Amount {
+		account.Balance = account.Balance - command.Amount
+		account.BuyAmounts[command.Stock] = command.Amount
 
 		opts := options.Update().SetUpsert(true)
 		filter := bson.M{"username": command.Username}
@@ -135,14 +135,14 @@ func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
 		return nil, err
 	}
 
-	if account.sell[command.Stock] > 0 {
-		account.stocks[command.Stock] = account.stocks[command.Stock] + account.sell[command.Stock]
-		account.sell[command.Stock] = 0
+	if account.SellAmounts[command.Stock] > 0 {
+		account.Stocks[command.Stock] = account.Stocks[command.Stock] + account.SellAmounts[command.Stock]
+		account.BuyAmounts[command.Stock] = 0
 	}
 
-	if account.stocks[command.Stock] >= command.Amount {
-		account.stocks[command.Stock] = account.stocks[command.Stock] - command.Amount
-		account.sell[command.Stock] = command.Amount
+	if account.Stocks[command.Stock] >= command.Amount {
+		account.Stocks[command.Stock] = account.Stocks[command.Stock] - command.Amount
+		account.SellAmounts[command.Stock] = command.Amount
 
 		opts := options.Update().SetUpsert(true)
 		filter := bson.M{"username": command.Username}
@@ -236,10 +236,10 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 func handle(ctx *context.Context, requestData []byte) *Response {
 	command := &Command{}
 	err := json.Unmarshal(requestData, command)
-		if err != nil {
-			log.Printf("Failed to unmarshal message: %+v", requestData)
-			return &Response{Data: []byte{}, Error: "Invalid data sent"}
-		}
+	if err != nil {
+		log.Printf("Failed to unmarshal message: %+v", requestData)
+		return &Response{Data: []byte{}, Error: "Invalid data sent"}
+	}
 
 	response := &Response{}
 	err = verifyAndParseRequestData(command)
