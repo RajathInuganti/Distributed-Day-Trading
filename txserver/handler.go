@@ -2,14 +2,12 @@ package main
 
 import (
 	"context"
-	"day-trading/txserver/event"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"log"
 	"strconv"
-	"time"
 
 	//"os"
 	//"strings"
@@ -223,7 +221,7 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 	xmlEncoding := []byte(xml.Header)
 	xmlEncoding = append(xmlEncoding, []byte("<Log>\n")...)
 	for cursor.Next(*ctx) {
-		event := &event.Event{}
+		event := &Event{}
 		err := cursor.Decode(event)
 		if err != nil {
 			log.Printf("Error while decoding a mongo doc into go struct. : %v ", cursor.Current)
@@ -263,17 +261,17 @@ func handle(ctx *context.Context, requestData []byte) *Response {
 	err = verifyAndParseRequestData(command)
 	if err != nil {
 		response.Error = err.Error()
-		logErrorEvent(ctx, time.Now().Unix(), 1, "server1", command.Command, command.Username, command.Stock, command.Filename, err.Error(), command.Amount)
+		logErrorEvent(ctx, 1, "server1", err.Error(), command)
 		return response
 	}
 
-	logUserCommandEvent(ctx, time.Now().Unix(), 1, "server1", command.Command, command.Username, command.Stock, command.Filename, command.Amount)
+	logUserCommandEvent(ctx, 1, "server1", command)
 
 	responseData, err := handlerMap[command.Command](ctx, command)
 	if err != nil {
 		log.Printf("Error handling command %+v, error: %s", command, err)
 		response.Error = err.Error()
-		logErrorEvent(ctx, time.Now().Unix(), 1, "server1", command.Command, command.Username, command.Stock, command.Filename, err.Error(), command.Amount)
+		logErrorEvent(ctx, 1, "server1", err.Error(), command)
 		return response
 	}
 
