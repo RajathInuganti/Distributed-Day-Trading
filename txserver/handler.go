@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-	"time"
 
 	//"os"
 	//"strings"
@@ -246,17 +245,17 @@ func handle(ctx *context.Context, requestData []byte) *Response {
 	err = verifyAndParseRequestData(command)
 	if err != nil {
 		response.Error = err.Error()
-		logErrorEvent(ctx, time.Now().Unix(), 1, "server1", command.Command, command.Username, command.Stock, command.Filename, err.Error(), command.Amount)
+		logErrorEvent(ctx, 1, "server1", err.Error(), command)
 		return response
 	}
 
-	logUserCommandEvent(ctx, time.Now().Unix(), 1, "server1", command.Command, command.Username, command.Stock, command.Filename, command.Amount)
+	logUserCommandEvent(ctx, 1, "server1", command)
 
 	responseData, err := handlerMap[command.Command](ctx, command)
 	if err != nil {
 		log.Printf("Error handling command %+v, error: %s", command, err)
 		response.Error = err.Error()
-		logErrorEvent(ctx, time.Now().Unix(), 1, "server1", command.Command, command.Username, command.Stock, command.Filename, err.Error(), command.Amount)
+		logErrorEvent(ctx, 1, "server1", err.Error(), command)
 		return response
 	}
 
