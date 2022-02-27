@@ -59,8 +59,8 @@ type UserAccount struct {
 }
 
 type CommandHistory struct {
-	Timestamp int64   `json:"timestamp"`
-	Amount    float32 `json:"amount"`
+	Timestamp int64   `bson:"timestamp"`
+	Amount    float32 `bson:"amount"`
 }
 
 // Event struct describes any 'event' that occurs in the system (any of UserCommand, QuoteServer, AccountTransaction, SystemEvent, ErrorEvent)
