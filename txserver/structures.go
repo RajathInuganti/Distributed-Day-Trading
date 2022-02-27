@@ -36,11 +36,11 @@ type ParsingErrors struct {
 }
 
 type Transaction struct {
-	ID              int64   `json:"transactionNum"`
-	Timestamp       int64   `json:"timestamp"`
-	TransactionType string  `json:"transactionType"`
-	Amount          float32 `json:"amount"`
-	Stock           string  `json:"stock"`
+	ID              int64   `bson:"id"`
+	Timestamp       int64   `bson:"timestamp"`
+	TransactionType string  `bson:"transactionType"`
+	Amount          float32 `bson:"amount"`
+	Stock           string  `bson:"stock"`
 }
 
 type UserAccount struct {

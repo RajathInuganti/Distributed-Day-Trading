@@ -58,7 +58,6 @@ func cancel_sell(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte{}, nil
 }
 
-
 func buy(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte{}, nil
 }
@@ -186,10 +185,9 @@ func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
 
 	responseData, err := bson.Marshal(account)
 	if err != nil {
-		return nil, errors.New("An error occured while marshalling account")
+		return nil, errors.New("an error occured while marshalling account")
 	}
 
-	// Todo: Include triggers, and previous transactions in the responseData
 	return responseData, nil
 }
 
