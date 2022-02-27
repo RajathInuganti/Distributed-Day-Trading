@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"day-trading/txserver/event"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
@@ -207,7 +206,7 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 	xmlEncoding := []byte(xml.Header)
 	xmlEncoding = append(xmlEncoding, []byte("<Log>\n")...)
 	for cursor.Next(*ctx) {
-		event := &event.Event{}
+		event := &Event{}
 		err := cursor.Decode(event)
 		if err != nil {
 			log.Printf("Error while decoding a mongo doc into go struct. : %v ", cursor.Current)
