@@ -2,14 +2,12 @@ package main
 
 import (
 	"context"
-	"day-trading/txserver/event"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"log"
 	"strconv"
-	"time"
 
 	//"os"
 	//"strings"
@@ -72,25 +70,30 @@ func sell(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func find_account(ctx *context.Context, command *Command) (UserAccount, *mongo.Collection, error) {
+func find_account(ctx *context.Context, username string) (*UserAccount, error) {
 	var account UserAccount
 
 	if parseErrors.stockSymbolEmpty || parseErrors.usernameEmpty || parseErrors.AmountNotConvertibleToFloat {
-		return account, nil, errors.New("insufficient information")
+		return &account, errors.New("insufficient information")
 	}
 
-	Accounts := client.Database("test").Collection("Accounts")
-	err := Accounts.FindOne(*ctx, bson.M{"username": command.Username}).Decode(&account)
+	AccountsCollection := client.Database("test").Collection("Accounts")
+	err := AccountsCollection.FindOne(*ctx, bson.M{"username": username}).Decode(&account)
 	if err != nil {
-		return account, nil, errors.New("account not found")
+		if err == mongo.ErrNoDocuments {
+			return nil, fmt.Errorf("No account found for %s", username)
+		}
+
+		log.Printf("Error finding account with username: %s, error: %s", username, err.Error())
+		return nil, errors.New("an Error occured while finding the account")
 	}
 
-	return account, Accounts, nil
+	return &account, nil
 }
 
 func set_buy_amount(ctx *context.Context, command *Command) ([]byte, error) {
 
-	account, Accounts, err := find_account(ctx, command)
+	account, err := find_account(ctx, command.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +110,8 @@ func set_buy_amount(ctx *context.Context, command *Command) ([]byte, error) {
 		opts := options.Update().SetUpsert(true)
 		filter := bson.M{"username": command.Username}
 
-		result, err := Accounts.UpdateOne(context.TODO(), filter, account, opts)
+		accountsCollection := client.Database("test").Collection("Accounts")
+		result, err := accountsCollection.UpdateOne(context.TODO(), filter, account, opts)
 		if err != nil {
 			return nil, errors.New("account update unsuccessful")
 		}
@@ -126,7 +130,7 @@ func set_buy_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 
 func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
 
-	account, Accounts, err := find_account(ctx, command)
+	account, err := find_account(ctx, command.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +147,8 @@ func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
 		opts := options.Update().SetUpsert(true)
 		filter := bson.M{"username": command.Username}
 
-		result, err := Accounts.UpdateOne(context.TODO(), filter, account, opts)
+		accountsCollection := client.Database("test").Collection("Accounts")
+		result, err := accountsCollection.UpdateOne(context.TODO(), filter, account, opts)
 		if err != nil {
 			return nil, errors.New("account update unsuccessful")
 		}
@@ -200,7 +205,7 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 	xmlEncoding := []byte(xml.Header)
 	xmlEncoding = append(xmlEncoding, []byte("<Log>\n")...)
 	for cursor.Next(*ctx) {
-		event := &event.Event{}
+		event := &Event{}
 		err := cursor.Decode(event)
 		if err != nil {
 			log.Printf("Error while decoding a mongo doc into go struct. : %v ", cursor.Current)
@@ -240,17 +245,17 @@ func handle(ctx *context.Context, requestData []byte) *Response {
 	err = verifyAndParseRequestData(command)
 	if err != nil {
 		response.Error = err.Error()
-		logErrorEvent(ctx, time.Now().Unix(), 1, "server1", command.Command, command.Username, command.Stock, command.Filename, err.Error(), command.Amount)
+		logErrorEvent(ctx, 1, "server1", err.Error(), command)
 		return response
 	}
 
-	logUserCommandEvent(ctx, time.Now().Unix(), 1, "server1", command.Command, command.Username, command.Stock, command.Filename, command.Amount)
+	logUserCommandEvent(ctx, 1, "server1", command)
 
 	responseData, err := handlerMap[command.Command](ctx, command)
 	if err != nil {
 		log.Printf("Error handling command %+v, error: %s", command, err)
 		response.Error = err.Error()
-		logErrorEvent(ctx, time.Now().Unix(), 1, "server1", command.Command, command.Username, command.Stock, command.Filename, err.Error(), command.Amount)
+		logErrorEvent(ctx, 1, "server1", err.Error(), command)
 		return response
 	}
 

@@ -2,109 +2,102 @@ package main
 
 import (
 	"context"
-	"day-trading/txserver/event"
 	"log"
 	"time"
 )
 
-func logUserCommandEvent(
-	ctx *context.Context, timestamp, transactionNum int64,
-	server, command, username, stock, filename string, funds float32) {
-	data := &event.UserCommand{
-		Timestamp:      timestamp,
+func logUserCommandEvent(ctx *context.Context, transactionNum int64, server string, command *Command) {
+	data := &UserCommand{
+		Timestamp:      time.Now().Unix(),
 		Server:         server,
 		TransactionNum: transactionNum,
-		Command:        command,
-		Username:       username,
-		StockSymbol:    stock,
-		Filename:       filename,
-		Funds:          funds,
+		Command:        command.Command,
+		Username:       command.Username,
+		StockSymbol:    command.Stock,
+		Filename:       command.Filename,
+		Funds:          command.Amount,
 	}
-	event := &event.Event{EventType: event.EventUserCommand, Data: data}
+	event := &Event{EventType: EventUserCommand, Data: data}
 	insertEventToDB(ctx, event)
 }
 
-func logQuoteServerEvent(ctx *context.Context, timestamp, transactionNum int64,
-	server, stock, username, cryptokey string, quoteServerTime int64) {
-	data := &event.QuoteServer{
-		Timestamp:       timestamp,
+func logQuoteServerEvent(ctx *context.Context, transactionNum int64,
+	server string, cryptokey string, quoteServerTime int64, command *Command) {
+	data := &QuoteServer{
+		Timestamp:       time.Now().Unix(),
 		Server:          server,
 		TransactionNum:  transactionNum,
-		StockSymbol:     stock,
-		Username:        username,
-		QuoteServerTime: timestamp,
+		StockSymbol:     command.Stock,
+		Username:        command.Username,
+		QuoteServerTime: quoteServerTime,
 		Cryptokey:       cryptokey,
 	}
-	event := &event.Event{EventType: event.EventQuoteServer, Data: data}
+	event := &Event{EventType: EventQuoteServer, Data: data}
 	insertEventToDB(ctx, event)
 }
 
-func logAccountTransactionEvent(ctx *context.Context, timestamp, transactionNum int64,
-	server, action, username string, funds float32) {
-	data := &event.AccountTransaction{
-		Timestamp:      timestamp,
+func logAccountTransactionEvent(ctx *context.Context, transactionNum int64, server, action string, command *Command) {
+	data := &AccountTransaction{
+		Timestamp:      time.Now().Unix(),
 		Server:         server,
 		TransactionNum: transactionNum,
 		Action:         action,
-		Username:       username,
-		Funds:          funds,
+		Username:       command.Username,
+		Funds:          command.Amount,
 	}
-	event := &event.Event{EventType: event.EventAccountTransaction, Data: data}
+	event := &Event{EventType: EventAccountTransaction, Data: data}
 	insertEventToDB(ctx, event)
 }
 
-func logSystemEvent(ctx *context.Context, timestamp, transactionNum int64,
-	server, command, username, stock, filename string, funds float32) {
-	data := &event.SystemEvent{
-		Timestamp:      timestamp,
+func logSystemEvent(ctx *context.Context, transactionNum int64, server string, command *Command) {
+	data := &SystemEvent{
+		Timestamp:      time.Now().Unix(),
 		Server:         server,
 		TransactionNum: transactionNum,
-		Command:        command,
-		Username:       username,
-		StockSymbol:    stock,
-		Filename:       filename,
-		Funds:          funds,
+		Command:        command.Command,
+		Username:       command.Username,
+		StockSymbol:    command.Stock,
+		Filename:       command.Filename,
+		Funds:          command.Amount,
 	}
-	event := &event.Event{EventType: event.EventSystem, Data: data}
+	event := &Event{EventType: EventSystem, Data: data}
 	insertEventToDB(ctx, event)
 }
 
-func logErrorEvent(ctx *context.Context, timestamp, transactionNum int64,
-	server, command, username, stock, filename, errorMsg string, funds float32) {
-	data := &event.ErrorEvent{
-		Timestamp:      timestamp,
+func logErrorEvent(ctx *context.Context,transactionNum int64, server string, errorMsg string, command *Command) {
+	data := &ErrorEvent{
+		Timestamp:      time.Now().Unix(),
 		Server:         server,
 		TransactionNum: transactionNum,
-		Command:        command,
-		Username:       username,
-		StockSymbol:    stock,
-		Filename:       filename,
+		Command:        command.Command,
+		Username:       command.Username,
+		StockSymbol:    command.Stock,
+		Filename:       command.Filename,
 		ErrorMessage:   errorMsg,
-		Funds:          funds,
+		Funds:          command.Amount,
 	}
-	event := &event.Event{EventType: event.EventError, Data: data}
+	event := &Event{EventType: EventError, Data: data}
 	insertEventToDB(ctx, event)
 }
 
-func logDebugEvent(ctx *context.Context, timestamp, transactionNum int64,
-	server, command, username, stock, filename, debugMsg string, funds float32) {
-	data := &event.DebugEvent{
-		Timestamp:      timestamp,
+func logDebugEvent(ctx *context.Context, transactionNum int64, server, debugMsg string, command *Command) {
+	data := &DebugEvent{
+		Timestamp:      time.Now().Unix(),
 		Server:         server,
 		TransactionNum: transactionNum,
-		Command:        command,
-		Username:       username,
-		StockSymbol:    stock,
-		Filename:       filename,
+		Command:        command.Command,
+		Username:       command.Username,
+		StockSymbol:    command.Stock,
+		Filename:       command.Filename,
 		DebugMessage:   debugMsg,
-		Funds:          funds,
+		Funds:          command.Amount,
 	}
 
-	event := &event.Event{EventType: event.EventDebug, Data: data}
+	event := &Event{EventType: EventDebug, Data: data}
 	insertEventToDB(ctx, event)
 }
 
-func insertEventToDB(ctx *context.Context, event *event.Event) {
+func insertEventToDB(ctx *context.Context, event *Event) {
 	eventsCollection := client.Database("test").Collection("events")
 	
 	maxAttempts := 5
