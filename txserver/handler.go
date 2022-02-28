@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	//"os"
 	//"strings"
@@ -64,7 +65,36 @@ func add(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func commit_buy(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	stock := account.RecentBuy.stock
+	stock_amount := account.RecentBuy.Amount
+	buy_timestamp := account.RecentBuy.Timestamp
+
+	time_elapsed := time.Now().Unix() - buy_timestamp
+
+	if time_elapsed <= 60 {
+		account.Balance -= stock_amount
+		account.Stocks[stock] += stock_amount
+
+		Accounts := client.Database("test").Collection("Accounts")
+		opts := options.Update().SetUpsert(true)
+		filter := bson.M{"username": command.Username}
+
+		result, err := Accounts.UpdateOne(context.TODO(), filter, account, opts)
+
+		if err != nil {
+			return nil, errors.New("commit buy unsuccessful")
+		}
+
+		if result.MatchedCount == 1 {
+			return []byte("commit buy successful"), nil
+		}
+	}
+	return nil, errors.New("commit buy executed after 60 seconds - failed")
 }
 
 func cancel_buy(ctx *context.Context, command *Command) ([]byte, error) {
@@ -84,7 +114,30 @@ func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func buy(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	account.RecentBuy.Amount = command.Amount
+	account.RecentBuy.Timestamp = time.Now().Unix()
+	account.RecentBuy.stock = command.Stock
+
+	Accounts := client.Database("test").Collection("Accounts")
+	opts := options.Update().SetUpsert(true)
+	filter := bson.M{"username": command.Username}
+
+	result, err := Accounts.UpdateOne(context.TODO(), filter, account, opts)
+
+	if err != nil {
+		return nil, errors.New("buy command unsuccessful")
+	}
+
+	if result.MatchedCount == 1 {
+		return []byte("buy command successful"), nil
+	}
+
+	return nil, errors.New("buy command unsuccessful")
 }
 
 func sell(ctx *context.Context, command *Command) ([]byte, error) {
