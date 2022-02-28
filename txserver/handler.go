@@ -72,7 +72,23 @@ func commit_sell(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func cancel_sell(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return []byte{}, fmt.Errorf("Failed to cancel buy for %s, error: %s", command.Username, err.Error())
+	}
+
+	account.RecentSell.Timestamp = 0
+	account.RecentSell.Amount = 0
+	account.RecentSell.stock = ""
+
+	update := bson.M{"$set": bson.D{primitive.E{Key: "recentSell", Value: account.RecentSell}}}
+
+	err = updateUserAccount(ctx, account.Username, update)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	return []byte("Successfully cancelled the recent SELL"), nil
 }
 
 func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
