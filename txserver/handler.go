@@ -13,6 +13,7 @@ import (
 	//"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -47,7 +48,23 @@ func commit_buy(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func cancel_buy(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return []byte{}, fmt.Errorf("Failed to cancel buy for %s, error: %s", command.Username, err.Error())
+	}
+
+	account.RecentBuy.Timestamp = 0
+	account.RecentBuy.Amount = 0
+	account.RecentSell.stock = ""
+
+	update := bson.M{"$set": bson.D{primitive.E{Key: "recentSell", Value: account.RecentSell}}}
+
+	err = updateUserAccount(ctx, account.Username, update)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	return []byte("Successfully cancelled the recent BUY"), nil
 }
 
 func commit_sell(ctx *context.Context, command *Command) ([]byte, error) {
