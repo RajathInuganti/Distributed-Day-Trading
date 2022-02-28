@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	//"os"
 	//"strings"
@@ -36,6 +37,36 @@ var handlerMap = map[string]func(*context.Context, *Command) ([]byte, error){
 	"CANCEL_SET_BUY":   cancel_set_buy,
 	"CANCEL_SET_SELL":  cancel_set_sell,
 	"DUMPLOG":          dumplog,
+}
+
+func CreateUserAccount(ctx *context.Context, username string) (*UserAccount, error) {
+	account := &UserAccount{
+		Username:     username,
+		Balance:      0,
+		Created:      time.Now().Unix(),
+		Updated:      time.Now().Unix(),
+		BuyAmounts:   map[string]float32{},
+		SellAmounts:  map[string]float32{},
+		BuyTriggers:  []*Trigger{},
+		SellTriggers: []*Trigger{},
+		Stocks:       map[string]float32{},
+		Transactions: []*Transaction{},
+		RecentBuy:    &CommandHistory{},
+		RecentSell:   &CommandHistory{},
+	}
+
+	bsonBytes, err := bson.Marshal(account)
+	if err != nil {
+		return nil, err
+	}
+
+	accountsCollection := client.Database("test").Collection("Accounts")
+	_, err = accountsCollection.InsertOne(*ctx, bsonBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return account, nil
 }
 
 func add(ctx *context.Context, command *Command) ([]byte, error) {
