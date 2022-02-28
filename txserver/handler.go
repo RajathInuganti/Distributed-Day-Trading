@@ -72,15 +72,13 @@ func CreateUserAccount(ctx *context.Context, username string) (*UserAccount, err
 
 func add(ctx *context.Context, command *Command) ([]byte, error) {
 	account, err := find_account(ctx, command.Username)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			account, err = CreateUserAccount(ctx, command.Username)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, fmt.Errorf("failed to add funds for %s, error: %s", command.Username, err.Error())
+	if err == mongo.ErrNoDocuments {
+		account, err = CreateUserAccount(ctx, command.Username)
+		if err != nil {
+			return nil, err
 		}
+	} else {
+		return nil, fmt.Errorf("failed to add funds for %s, error: %s", command.Username, err.Error())
 	}
 	account.Balance += command.Amount
 
