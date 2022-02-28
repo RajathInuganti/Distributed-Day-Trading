@@ -19,7 +19,7 @@ const (
 type Command struct {
 	Command  string  `json:"Command"`
 	Username string  `json:"Username"`
-	Amount   float32 `json:"Amount"`
+	Amount   float64 `json:"Amount"`
 	Stock    string  `json:"Stock"`
 	Filename string  `json:"Filename"`
 }
@@ -39,20 +39,20 @@ type Transaction struct {
 	ID              int64   `json:"transactionNum"`
 	Timestamp       int64   `json:"timestamp"`
 	TransactionType string  `json:"transactionType"`
-	Amount          float32 `json:"amount"`
+	Amount          float64 `json:"amount"`
 	Stock           string  `json:"stock"`
 }
 
 type UserAccount struct {
 	Username     string             `bson:"username"`
-	Balance      float32            `bson:"balance"`
+	Balance      float64            `bson:"balance"`
 	Created      int64              `bson:"created"`
 	Updated      int64              `bson:"updated"`
-	BuyAmounts   map[string]float32 `bson:"buy"`
-	SellAmounts  map[string]float32 `bson:"sell"`
+	BuyAmounts   map[string]float64 `bson:"buy"`
+	SellAmounts  map[string]float64 `bson:"sell"`
 	BuyTriggers  []*Trigger         `bson:"buyTriggers"`
 	SellTriggers []*Trigger         `bson:"sellTriggers"`
-	Stocks       map[string]float32 `bson:"stocks"`
+	Stocks       map[string]float64 `bson:"stocks"`
 	Transactions []*Transaction     `bson:"transactions"`
 	RecentBuy    *CommandHistory    `bson:"recentBuy"`
 	RecentSell   *CommandHistory    `bson:"recentSell"`
@@ -65,7 +65,7 @@ type Trigger struct {
 
 type CommandHistory struct {
 	Timestamp int64   `bson:"timestamp"`
-	Amount    float32 `bson:"amount"`
+	Amount    float64 `bson:"amount"`
 	stock     string  `bson:"stock"`
 }
 
@@ -129,7 +129,7 @@ type UserCommand struct {
 	Username       string  `xml:"username"`
 	StockSymbol    string  `xml:"stockSymbol"`
 	Filename       string  `xml:"filename"`
-	Funds          float32 `xml:"funds"`
+	Funds          float64 `xml:"funds"`
 }
 
 // QuoteServer: Any communication with the quoter server
@@ -151,7 +151,7 @@ type AccountTransaction struct {
 	TransactionNum int64   `xml:"transactionNum"`
 	Action         string  `xml:"action"`
 	Username       string  `xml:"username"`
-	Funds          float32 `xml:"funds"`
+	Funds          float64 `xml:"funds"`
 }
 
 // SystemEvent: Any event that is triggered by our system. For example, buying a stock because a trigger was set by the user.
@@ -163,7 +163,7 @@ type SystemEvent struct {
 	Username       string  `xml:"username"`
 	StockSymbol    string  `xml:"stockSymbol"`
 	Filename       string  `xml:"filename"`
-	Funds          float32 `xml:"funds"`
+	Funds          float64 `xml:"funds"`
 }
 
 // ErrorEvent: Any error that occurs for a transaction with the quote server
@@ -175,7 +175,7 @@ type ErrorEvent struct {
 	Username       string  `xml:"username"`
 	StockSymbol    string  `xml:"stockSymbol"`
 	Filename       string  `xml:"filename"`
-	Funds          float32 `xml:"funds"`
+	Funds          float64 `xml:"funds"`
 	ErrorMessage   string  `xml:"errorMessage"`
 }
 
@@ -188,6 +188,6 @@ type DebugEvent struct {
 	Username       string  `xml:"username"`
 	StockSymbol    string  `xml:"stockSymbol"`
 	Filename       string  `xml:"filename"`
-	Funds          float32 `xml:"funds"`
+	Funds          float64 `xml:"funds"`
 	DebugMessage   string  `xml:"debugMessage"`
 }
