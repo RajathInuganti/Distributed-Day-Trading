@@ -71,17 +71,67 @@ func CreateUserAccount(ctx *context.Context, username string) (*UserAccount, err
 }
 
 func add(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			account, err = CreateUserAccount(ctx, command.Username)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, fmt.Errorf("failed to add funds for %s, error: %s", command.Username, err.Error())
+		}
+	}
+	account.Balance += command.Amount
+
+	update := bson.M{"$set": bson.D{primitive.E{Key: "balance", Value: account.Balance}}}
+
+	err = updateUserAccount(ctx, account.Username, update)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	return []byte("successfully added funds to user account"), nil
 }
 
 func commit_buy(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return []byte{}, fmt.Errorf("failed to commit buy for %s, error: %s", command.Username, err.Error())
+	}
+
+	stock := account.RecentBuy.stock
+	stock_amount := account.RecentBuy.Amount
+	buy_timestamp := account.RecentBuy.Timestamp
+
+	time_elapsed := time.Now().Unix() - buy_timestamp
+
+	if time_elapsed <= 60 {
+		account.Balance -= stock_amount
+		account.Stocks[stock] += stock_amount
+
+		update := bson.M{
+			"$set": bson.M{
+				"balance": account.Balance,
+				"stocks":  account.Stocks,
+			},
+		}
+
+		err = updateUserAccount(ctx, account.Username, update)
+		if err != nil {
+			return []byte{}, err
+		}
+
+		return []byte("successfully committed the most recent buy"), nil
+
+	}
+	return nil, errors.New("commit buy executed after 60 seconds - failed")
 }
 
 func cancel_buy(ctx *context.Context, command *Command) ([]byte, error) {
 	account, err := find_account(ctx, command.Username)
 	if err != nil {
-		return []byte{}, fmt.Errorf("Failed to cancel buy for %s, error: %s", command.Username, err.Error())
+		return []byte{}, fmt.Errorf("failed to cancel buy for %s, error: %s", command.Username, err.Error())
 	}
 
 	account.RecentBuy.Timestamp = 0
@@ -105,7 +155,7 @@ func commit_sell(ctx *context.Context, command *Command) ([]byte, error) {
 func cancel_sell(ctx *context.Context, command *Command) ([]byte, error) {
 	account, err := find_account(ctx, command.Username)
 	if err != nil {
-		return []byte{}, fmt.Errorf("Failed to cancel buy for %s, error: %s", command.Username, err.Error())
+		return []byte{}, fmt.Errorf("failed to cancel buy for %s, error: %s", command.Username, err.Error())
 	}
 
 	account.RecentSell.Timestamp = 0
@@ -127,7 +177,24 @@ func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func buy(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, fmt.Errorf("failed to buy selected stock for %s, error: %s", command.Username, err.Error())
+	}
+
+	account.RecentBuy.Amount = command.Amount
+	account.RecentBuy.Timestamp = time.Now().Unix()
+	account.RecentBuy.stock = command.Stock
+
+	update := bson.M{"$set": bson.D{primitive.E{Key: "recentBuy", Value: account.RecentBuy}}}
+
+	err = updateUserAccount(ctx, account.Username, update)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	return []byte("buy command successful"), nil
+
 }
 
 func sell(ctx *context.Context, command *Command) ([]byte, error) {
@@ -145,7 +212,7 @@ func find_account(ctx *context.Context, username string) (*UserAccount, error) {
 	err := AccountsCollection.FindOne(*ctx, bson.M{"username": username}).Decode(&account)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return nil, fmt.Errorf("No account found for %s", username)
+			return nil, err
 		}
 
 		log.Printf("Error finding account with username: %s, error: %s", username, err.Error())
