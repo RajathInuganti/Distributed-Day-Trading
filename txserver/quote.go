@@ -22,7 +22,7 @@ func quote_server_connect() net.Conn {
 }
 
 //Use for testing on UVic machine
-func get_quote(username string, stock string) string {
+func get_quote(stock string, username string) string {
 
 	var conn net.Conn
 
@@ -31,14 +31,14 @@ func get_quote(username string, stock string) string {
 		conn = quote_server_connect()
 	}
 
-	_, err := conn.Write([]byte(stock + username))
+	_, err := conn.Write([]byte(stock + username + "\n"))
 	if err != nil {
-		return get_quote(username, stock)
+		return get_quote(stock, username)
 	}
 
 	result, err := ioutil.ReadAll(conn)
 	if err != nil || result == nil {
-		return get_quote(username, stock)
+		return get_quote(stock, username)
 	}
 
 	fmt.Println(string(result))
