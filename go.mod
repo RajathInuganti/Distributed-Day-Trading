@@ -8,6 +8,8 @@ require (
 	go.mongodb.org/mongo-driver v1.8.3
 )
 
+require github.com/emirpasic/gods v1.12.0 // indirect
+
 require (
 	github.com/Microsoft/go-winio v0.4.17 // indirect
 	github.com/containerd/containerd v1.5.9 // indirect
@@ -30,7 +32,6 @@ require (
 	github.com/xdg-go/scram v1.0.2 // indirect
 	github.com/xdg-go/stringprep v1.0.2 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
-	go.mongodb.org/mongo-driver v1.8.3
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2 // indirect
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110 // indirect
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a // indirect

@@ -81,7 +81,7 @@ func find_account(ctx *context.Context, username string) (*UserAccount, error) {
 	err := AccountsCollection.FindOne(*ctx, bson.M{"username": username}).Decode(&account)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return nil, fmt.Errorf("No account found for %s", username)
+			return nil, fmt.Errorf("no account found for %s", username)
 		}
 
 		log.Printf("Error finding account with username: %s, error: %s", username, err.Error())
@@ -125,7 +125,18 @@ func set_buy_amount(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func set_buy_trigger(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	if account.BuyAmounts[command.Stock] >= command.Amount {
+		return trigger(command, "BUY"), nil
+
+	}
+
+	return nil, errors.New("not enough amount for transaction")
 }
 
 func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
@@ -162,7 +173,18 @@ func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func set_sell_trigger(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	if account.Stocks[command.Stock] >= command.Amount {
+		return trigger(command, "SELL"), nil
+
+	}
+
+	return nil, errors.New("not enough stock for transaction")
 }
 
 func quote(ctx *context.Context, command *Command) ([]byte, error) {
