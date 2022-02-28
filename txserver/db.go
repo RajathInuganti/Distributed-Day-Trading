@@ -24,4 +24,6 @@ func updateUserAccount(ctx *context.Context, username string, update primitive.M
 	if result.MatchedCount == 1 {
 		return nil
 	}
+
+	return errors.New("account update unsuccessful")
 }
