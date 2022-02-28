@@ -66,6 +66,7 @@ type Trigger struct {
 type CommandHistory struct {
 	Timestamp int64   `bson:"timestamp"`
 	Amount    float32 `bson:"amount"`
+	stock     string  `bson:"stock"`
 }
 
 // Event struct describes any 'event' that occurs in the system (any of UserCommand, QuoteServer, AccountTransaction, SystemEvent, ErrorEvent)
