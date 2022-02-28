@@ -39,7 +39,28 @@ var handlerMap = map[string]func(*context.Context, *Command) ([]byte, error){
 }
 
 func add(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	account.Balance += command.Amount
+
+	Accounts := client.Database("test").Collection("Accounts")
+	opts := options.Update().SetUpsert(true)
+	filter := bson.M{"username": command.Username}
+
+	result, err := Accounts.UpdateOne(context.TODO(), filter, account, opts)
+
+	if err != nil {
+		return nil, errors.New("account update unsuccessful")
+	}
+
+	if result.MatchedCount == 1 {
+		return []byte("account balance updated"), nil
+	}
+
+	return nil, errors.New("account update unsuccessful")
 }
 
 func commit_buy(ctx *context.Context, command *Command) ([]byte, error) {
