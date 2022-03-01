@@ -8,7 +8,7 @@ require (
 	go.mongodb.org/mongo-driver v1.8.3
 )
 
-require github.com/emirpasic/gods v1.12.0 // indirect
+require github.com/emirpasic/gods v1.12.0
 
 require (
 	github.com/Microsoft/go-winio v0.4.17 // indirect

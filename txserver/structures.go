@@ -36,36 +36,32 @@ type ParsingErrors struct {
 }
 
 type Transaction struct {
-	ID              int64   `json:"transactionNum"`
-	Timestamp       int64   `json:"timestamp"`
-	TransactionType string  `json:"transactionType"`
-	Amount          float32 `json:"amount"`
-	Stock           string  `json:"stock"`
+	ID              int64   `bson:"id"`
+	Timestamp       int64   `bson:"timestamp"`
+	TransactionType string  `bson:"transactionType"`
+	Amount          float32 `bson:"amount"`
+	Stock           string  `bson:"stock"`
 }
 
 type UserAccount struct {
 	Username     string             `bson:"username"`
 	Balance      float32            `bson:"balance"`
-	Created      int                `bson:"created"`
-	Updated      int                `bson:"updated"`
+	Created      int64              `bson:"created"`
+	Updated      int64              `bson:"updated"`
 	BuyAmounts   map[string]float32 `bson:"buy"`
 	SellAmounts  map[string]float32 `bson:"sell"`
-	BuyTriggers  []*Trigger         `bson:"buyTriggers"`
-	SellTriggers []*Trigger         `bson:"sellTriggers"`
+	BuyTriggers  map[string]float64 `bson:"buyTriggers"`
+	SellTriggers map[string]float64 `bson:"sellTriggers"`
 	Stocks       map[string]float32 `bson:"stocks"`
 	Transactions []*Transaction     `bson:"transactions"`
 	RecentBuy    *CommandHistory    `bson:"recentBuy"`
 	RecentSell   *CommandHistory    `bson:"recentSell"`
 }
 
-type Trigger struct {
-	Stock string  `bson:"stock"`
-	Price float64 `bson:"price"`
-}
-
 type CommandHistory struct {
 	Timestamp int64   `bson:"timestamp"`
 	Amount    float32 `bson:"amount"`
+	stock     string  `bson:"stock"`
 }
 
 // Event struct describes any 'event' that occurs in the system (any of UserCommand, QuoteServer, AccountTransaction, SystemEvent, ErrorEvent)

@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
+	"strings"
 )
 
 const (
@@ -22,7 +22,7 @@ func quote_server_connect() net.Conn {
 }
 
 //Use for testing on UVic machine
-func get_quote(stock string, username string) string {
+func get_quote(stock string, username string) []string {
 
 	var conn net.Conn
 
@@ -41,13 +41,11 @@ func get_quote(stock string, username string) string {
 		return get_quote(stock, username)
 	}
 
-	fmt.Println(string(result))
-
 	err = conn.Close()
 	if err != nil {
 		log.Fatalf("Unable to close connection with UVic Quote server")
 	}
 
-	return string(result)
+	return strings.Split(string(result), ",")
 
 }

@@ -1,6 +1,10 @@
 package main
 
 import (
+	"context"
+	"log"
+	"os"
+	"strconv"
 	"sync"
 
 	"github.com/emirpasic/gods/maps/treemap"
@@ -31,8 +35,8 @@ var (
 
 func float32Comparator(a, b interface{}) int {
 
-	c1 := a.(float32)
-	c2 := b.(float32)
+	c1 := a.(float64)
+	c2 := b.(float64)
 
 	switch {
 	case c1 > c2:
@@ -50,40 +54,75 @@ type poll struct {
 	sellPollingInProgress bool
 }
 
-func (p *poll) buy_poll(list *map[string]*treemap.Map, lock *sync.Mutex) []byte {
+func (p *poll) buy_poll(ctx *context.Context, list *map[string]*treemap.Map, lock *sync.Mutex) []byte {
 
 	if p.buyPollingInProgress {
 		return nil
 	}
 
-	go polling_thread(list, lock, &p.buyPollingInProgress)
+	go polling_thread(ctx, list, lock, &p.buyPollingInProgress)
 	p.buyPollingInProgress = true
 	return nil
 }
 
-func (p *poll) sell_poll(list *map[string]*treemap.Map, lock *sync.Mutex) []byte {
+func (p *poll) sell_poll(ctx *context.Context, list *map[string]*treemap.Map, lock *sync.Mutex) []byte {
 
 	if p.sellPollingInProgress {
 		return nil
 	}
 
-	go polling_thread(list, lock, &p.sellPollingInProgress)
+	go polling_thread(ctx, list, lock, &p.sellPollingInProgress)
 	p.sellPollingInProgress = true
 	return nil
 }
 
-func polling_thread(list *map[string]*treemap.Map, lock *sync.Mutex, pollingInProgress *bool) {
+func polling_thread(ctx *context.Context, list *map[string]*treemap.Map, lock *sync.Mutex, pollingInProgress *bool) {
 
-	for {
-		break
+	for len(*list) != 0 {
+		for stock := range *list {
+
+			quote := get_quote(stock, os.Getenv("HOSTNAME"))
+			quoted_price, err := strconv.ParseFloat(quote[0], 64)
+			if err != nil {
+				log.Println("error parsing string")
+			}
+
+			price_wait_list := (*list)[stock]
+			priceIterator := price_wait_list.Iterator()
+
+			for priceIterator.Next() {
+
+				price := priceIterator.Key().(float64)
+				if price < quoted_price {
+					break
+				}
+
+				// fulfill the trigger.
+				lock.Lock()
+
+				Iuser_list, _ := price_wait_list.Get(price)
+				user_list := Iuser_list.(*hashset.Set)
+				usernames := user_list.Values()
+				for index := range usernames {
+					username := usernames[index].(string)
+
+					account, err := find_account(ctx, username)
+					if err != nil {
+						log.Println("No account found")
+					}
+					log.Printf("Account: %+v", account)
+				}
+			}
+		}
 	}
+	*pollingInProgress = false
 }
 
-func trigger(command *Command, trigger string) []byte {
+func trigger(ctx *context.Context, command *Command, trigger string) []byte {
 
 	var lock *sync.Mutex
 	var list *map[string]*treemap.Map
-	var trigger_poll func(list *map[string]*treemap.Map, lock *sync.Mutex) []byte
+	var trigger_poll func(ctx *context.Context, list *map[string]*treemap.Map, lock *sync.Mutex) []byte
 
 	if trigger == "BUY" {
 		list = &buy_list
@@ -107,7 +146,7 @@ func trigger(command *Command, trigger string) []byte {
 		price_wait_list.Put(command.Amount, user_list)
 		(*list)[command.Stock] = price_wait_list
 
-		return trigger_poll(list, lock)
+		return trigger_poll(ctx, list, lock)
 	}
 
 	Iuser_list, found := price_wait_list.Get(command.Amount)
@@ -118,12 +157,12 @@ func trigger(command *Command, trigger string) []byte {
 		price_wait_list.Put(command.Amount, user_list)
 		(*list)[command.Stock] = price_wait_list
 
-		return trigger_poll(list, lock)
+		return trigger_poll(ctx, list, lock)
 	}
 
 	user_list.Add(command.Username)
 	price_wait_list.Put(command.Amount, user_list)
 	(*list)[command.Stock] = price_wait_list
 
-	return trigger_poll(list, lock)
+	return trigger_poll(ctx, list, lock)
 }
