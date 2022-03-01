@@ -170,10 +170,6 @@ func cancel_sell(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte("Successfully cancelled the recent SELL"), nil
 }
 
-func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
-}
-
 func buy(ctx *context.Context, command *Command) ([]byte, error) {
 	account, err := find_account(ctx, command.Username)
 	if err != nil {
@@ -304,6 +300,24 @@ func cancel_set_buy(ctx *context.Context, command *Command) ([]byte, error) {
 
 func cancel_set_sell(ctx *context.Context, command *Command) ([]byte, error) {
 	return []byte{}, nil
+}
+
+func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
+	if command.Username == "" {
+		return nil, errors.New("username is required for DISPLAY_SUMMARY")
+	}
+
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	responseData, err := bson.Marshal(account)
+	if err != nil {
+		return nil, errors.New("an error occured while marshalling account")
+	}
+
+	return responseData, nil
 }
 
 func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
