@@ -100,6 +100,7 @@ func add(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
+	logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 	return []byte("successfully added funds to user account"), nil
 }
 
@@ -131,6 +132,7 @@ func commit_buy(ctx *context.Context, command *Command) ([]byte, error) {
 			return []byte{}, err
 		}
 
+		logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 		return []byte("successfully committed the most recent buy"), nil
 
 	}
@@ -154,11 +156,45 @@ func cancel_buy(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
+	logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
+
 	return []byte("Successfully cancelled the recent BUY"), nil
 }
 
 func commit_sell(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return []byte{}, fmt.Errorf("failed to commit buy for %s, error: %s", command.Username, err.Error())
+	}
+
+	stock := account.RecentSell.stock
+	stock_amount := account.RecentSell.Amount
+	sell_timestamp := account.RecentSell.Timestamp
+
+	time_elapsed := time.Now().Unix() - sell_timestamp
+
+	if time_elapsed <= 60 {
+		account.Balance += stock_amount
+		account.Stocks[stock] -= stock_amount
+
+		update := bson.M{
+			"$set": bson.M{
+				"balance": account.Balance,
+				"stocks":  account.Stocks,
+			},
+		}
+
+		err = updateUserAccount(ctx, account.Username, update)
+		if err != nil {
+			return []byte{}, err
+		}
+
+		logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
+
+		return []byte("successfully committed the most recent sell"), nil
+
+	}
+	return nil, errors.New("commit sell executed after 60 seconds - failed")
 }
 
 func cancel_sell(ctx *context.Context, command *Command) ([]byte, error) {
@@ -178,6 +214,7 @@ func cancel_sell(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
+	logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 	return []byte("Successfully cancelled the recent SELL"), nil
 }
 
@@ -185,6 +222,10 @@ func buy(ctx *context.Context, command *Command) ([]byte, error) {
 	account, err := find_account(ctx, command.Username)
 	if err != nil {
 		return nil, fmt.Errorf("failed to buy selected stock for %s, error: %s", command.Username, err.Error())
+	}
+
+	if account.Balance < command.Amount {
+		return nil, errors.New("buy failed - insufficient funds")
 	}
 
 	account.RecentBuy.Amount = command.Amount
@@ -198,12 +239,33 @@ func buy(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
+	logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 	return []byte("buy command successful"), nil
 
 }
 
 func sell(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sell selected stock for %s, error: %s", command.Username, err.Error())
+	}
+
+	if account.Stocks[command.Stock] >= command.Amount {
+		account.RecentSell.Amount = command.Amount
+		account.RecentSell.Timestamp = time.Now().Unix()
+		account.RecentSell.stock = command.Stock
+
+		update := bson.M{"$set": bson.D{primitive.E{Key: "recentSell", Value: account.RecentSell}}}
+
+		err = updateUserAccount(ctx, account.Username, update)
+		if err != nil {
+			return []byte{}, err
+		}
+
+		logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
+		return []byte("sell command successful"), nil
+	}
+	return nil, errors.New("sell failed - insufficient amount of selected stock")
 }
 
 func find_account(ctx *context.Context, username string) (*UserAccount, error) {
