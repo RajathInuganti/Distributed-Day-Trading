@@ -32,20 +32,20 @@ type Transaction struct {
 	ID              int64   `bson:"id"`
 	Timestamp       int64   `bson:"timestamp"`
 	TransactionType string  `bson:"transactionType"`
-	Amount          float32 `bson:"amount"`
+	Amount          float64 `bson:"amount"`
 	Stock           string  `bson:"stock"`
 }
 
 type UserAccount struct {
 	Username     string             `bson:"username"`
-	Balance      float32            `bson:"balance"`
-	Created      int                `bson:"created"`
-	Updated      int                `bson:"updated"`
-	BuyAmounts   map[string]float32 `bson:"buy"`
-	SellAmounts  map[string]float32 `bson:"sell"`
+	Balance      float64            `bson:"balance"`
+	Created      int64              `bson:"created"`
+	Updated      int64              `bson:"updated"`
+	BuyAmounts   map[string]float64 `bson:"buy"`
+	SellAmounts  map[string]float64 `bson:"sell"`
 	BuyTriggers  []*Trigger         `bson:"buyTriggers"`
 	SellTriggers []*Trigger         `bson:"sellTriggers"`
-	Stocks       map[string]float32 `bson:"stocks"`
+	Stocks       map[string]float64 `bson:"stocks"`
 	Transactions []*Transaction     `bson:"transactions"`
 	RecentBuy    *CommandHistory    `bson:"recentBuy"`
 	RecentSell   *CommandHistory    `bson:"recentSell"`
@@ -58,7 +58,7 @@ type Trigger struct {
 
 type CommandHistory struct {
 	Timestamp int64   `bson:"timestamp"`
-	Amount    float32 `bson:"amount"`
+	Amount    float64 `bson:"amount"`
 }
 
 // FromStringToCommandStruct takes a line from the user command file as an input and returns a defined golang structure

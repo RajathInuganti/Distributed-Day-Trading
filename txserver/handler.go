@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -58,11 +57,11 @@ func CreateUserAccount(ctx *context.Context, username string) (*UserAccount, err
 		Balance:      0,
 		Created:      time.Now().Unix(),
 		Updated:      time.Now().Unix(),
-		BuyAmounts:   map[string]float32{},
-		SellAmounts:  map[string]float32{},
+		BuyAmounts:   map[string]float64{},
+		SellAmounts:  map[string]float64{},
 		BuyTriggers:  map[string]float64{},
 		SellTriggers: map[string]float64{},
-		Stocks:       map[string]float32{},
+		Stocks:       map[string]float64{},
 		Transactions: []*Transaction{},
 		RecentBuy:    &CommandHistory{},
 		RecentSell:   &CommandHistory{},
@@ -450,18 +449,11 @@ func verifyAndParseRequestData(command *Command) error {
 		return errors.New("no command specified")
 	}
 
-	amountFloatValue, AmountNotConvertibleToFloatError := strconv.ParseFloat(fmt.Sprintf("%v", command.Amount), 32)
 	usernameEmpty := command.Username == ""
 	stockSymbolEmpty := command.Stock == ""
 
 	parseErrors.usernameEmpty = usernameEmpty
 	parseErrors.stockSymbolEmpty = stockSymbolEmpty
-
-	// setting Amount to an integer value so that it can be used in the rest of the code
-	if AmountNotConvertibleToFloatError == nil {
-		command.Amount = float32(amountFloatValue)
-		return nil
-	}
 
 	parseErrors.AmountNotConvertibleToFloat = true
 	return nil
