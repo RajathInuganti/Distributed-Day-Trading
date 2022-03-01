@@ -51,17 +51,12 @@ type UserAccount struct {
 	Updated      int64              `bson:"updated"`
 	BuyAmounts   map[string]float32 `bson:"buy"`
 	SellAmounts  map[string]float32 `bson:"sell"`
-	BuyTriggers  []*Trigger         `bson:"buyTriggers"`
-	SellTriggers []*Trigger         `bson:"sellTriggers"`
+	BuyTriggers  map[string]float64 `bson:"buyTriggers"`
+	SellTriggers map[string]float64 `bson:"sellTriggers"`
 	Stocks       map[string]float32 `bson:"stocks"`
 	Transactions []*Transaction     `bson:"transactions"`
 	RecentBuy    *CommandHistory    `bson:"recentBuy"`
 	RecentSell   *CommandHistory    `bson:"recentSell"`
-}
-
-type Trigger struct {
-	Stock string  `bson:"stock"`
-	Price float64 `bson:"price"`
 }
 
 type CommandHistory struct {

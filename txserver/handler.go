@@ -60,8 +60,8 @@ func CreateUserAccount(ctx *context.Context, username string) (*UserAccount, err
 		Updated:      time.Now().Unix(),
 		BuyAmounts:   map[string]float32{},
 		SellAmounts:  map[string]float32{},
-		BuyTriggers:  []*Trigger{},
-		SellTriggers: []*Trigger{},
+		BuyTriggers:  map[string]float64{},
+		SellTriggers: map[string]float64{},
 		Stocks:       map[string]float32{},
 		Transactions: []*Transaction{},
 		RecentBuy:    &CommandHistory{},
@@ -262,7 +262,20 @@ func set_buy_amount(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func set_buy_trigger(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	// check if user has set multiple price triggers for same stock
+
+	if account.BuyAmounts[command.Stock] >= command.Amount {
+		return trigger(ctx, command, "BUY"), nil
+
+	}
+
+	return nil, errors.New("not enough amount for transaction")
 }
 
 func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
@@ -299,7 +312,20 @@ func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func set_sell_trigger(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	// check if user has set multiple price triggers for same stock
+
+	if account.Stocks[command.Stock] >= command.Amount {
+		return trigger(ctx, command, "SELL"), nil
+
+	}
+
+	return nil, errors.New("not enough stock for transaction")
 }
 
 func quote(ctx *context.Context, command *Command) ([]byte, error) {
