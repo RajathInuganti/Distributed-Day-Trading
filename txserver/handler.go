@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	//"os"
@@ -20,6 +22,8 @@ import (
 )
 
 var parseErrors ParsingErrors
+var transactionNumber int64
+var txMutex sync.Mutex
 
 var handlerMap = map[string]func(*context.Context, *Command) ([]byte, error){
 	"ADD":              add,
@@ -38,6 +42,14 @@ var handlerMap = map[string]func(*context.Context, *Command) ([]byte, error){
 	"CANCEL_SET_BUY":   cancel_set_buy,
 	"CANCEL_SET_SELL":  cancel_set_sell,
 	"DUMPLOG":          dumplog,
+}
+
+func getTransactionNumber() int64 {
+	txMutex.Lock()
+	defer txMutex.Unlock()
+
+	transactionNumber += 1
+	return transactionNumber
 }
 
 func CreateUserAccount(ctx *context.Context, username string) (*UserAccount, error) {
@@ -411,20 +423,21 @@ func handle(ctx *context.Context, requestData []byte) *Response {
 	}
 
 	response := &Response{}
+	command.TransactionNumber = getTransactionNumber()
 	err = verifyAndParseRequestData(command)
 	if err != nil {
 		response.Error = err.Error()
-		logErrorEvent(ctx, 1, "server1", err.Error(), command)
+		logErrorEvent(ctx, getHostname(), err.Error(), command)
 		return response
 	}
 
-	logUserCommandEvent(ctx, 1, "server1", command)
+	logUserCommandEvent(ctx, getHostname(), command)
 
 	responseData, err := handlerMap[command.Command](ctx, command)
 	if err != nil {
 		log.Printf("Error handling command %+v, error: %s", command, err)
 		response.Error = err.Error()
-		logErrorEvent(ctx, 1, "server1", err.Error(), command)
+		logErrorEvent(ctx, getHostname(), err.Error(), command)
 		return response
 	}
 
@@ -452,4 +465,13 @@ func verifyAndParseRequestData(command *Command) error {
 
 	parseErrors.AmountNotConvertibleToFloat = true
 	return nil
+}
+
+func getHostname() string {
+	hostname, errHostname := os.Hostname()
+	if errHostname != nil {
+		hostname = "txServerMain"
+	}
+
+	return hostname
 }

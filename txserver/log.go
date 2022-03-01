@@ -6,11 +6,11 @@ import (
 	"time"
 )
 
-func logUserCommandEvent(ctx *context.Context, transactionNum int64, server string, command *Command) {
+func logUserCommandEvent(ctx *context.Context, server string, command *Command) {
 	data := &UserCommand{
 		Timestamp:      time.Now().Unix(),
 		Server:         server,
-		TransactionNum: transactionNum,
+		TransactionNum: command.TransactionNumber,
 		Command:        command.Command,
 		Username:       command.Username,
 		StockSymbol:    command.Stock,
@@ -21,12 +21,11 @@ func logUserCommandEvent(ctx *context.Context, transactionNum int64, server stri
 	insertEventToDB(ctx, event)
 }
 
-func logQuoteServerEvent(ctx *context.Context, transactionNum int64,
-	server string, cryptokey string, quoteServerTime int64, command *Command) {
+func logQuoteServerEvent(ctx *context.Context, server, cryptokey string, quoteServerTime int64, command *Command) {
 	data := &QuoteServer{
 		Timestamp:       time.Now().Unix(),
 		Server:          server,
-		TransactionNum:  transactionNum,
+		TransactionNum:  command.TransactionNumber,
 		StockSymbol:     command.Stock,
 		Username:        command.Username,
 		QuoteServerTime: quoteServerTime,
@@ -36,11 +35,11 @@ func logQuoteServerEvent(ctx *context.Context, transactionNum int64,
 	insertEventToDB(ctx, event)
 }
 
-func logAccountTransactionEvent(ctx *context.Context, transactionNum int64, server, action string, command *Command) {
+func logAccountTransactionEvent(ctx *context.Context, server, action string, command *Command) {
 	data := &AccountTransaction{
 		Timestamp:      time.Now().Unix(),
 		Server:         server,
-		TransactionNum: transactionNum,
+		TransactionNum: command.TransactionNumber,
 		Action:         action,
 		Username:       command.Username,
 		Funds:          command.Amount,
@@ -49,11 +48,11 @@ func logAccountTransactionEvent(ctx *context.Context, transactionNum int64, serv
 	insertEventToDB(ctx, event)
 }
 
-func logSystemEvent(ctx *context.Context, transactionNum int64, server string, command *Command) {
+func logSystemEvent(ctx *context.Context, server string, command *Command) {
 	data := &SystemEvent{
 		Timestamp:      time.Now().Unix(),
 		Server:         server,
-		TransactionNum: transactionNum,
+		TransactionNum: command.TransactionNumber,
 		Command:        command.Command,
 		Username:       command.Username,
 		StockSymbol:    command.Stock,
@@ -64,11 +63,11 @@ func logSystemEvent(ctx *context.Context, transactionNum int64, server string, c
 	insertEventToDB(ctx, event)
 }
 
-func logErrorEvent(ctx *context.Context,transactionNum int64, server string, errorMsg string, command *Command) {
+func logErrorEvent(ctx *context.Context, server, errorMsg string, command *Command) {
 	data := &ErrorEvent{
 		Timestamp:      time.Now().Unix(),
 		Server:         server,
-		TransactionNum: transactionNum,
+		TransactionNum: command.TransactionNumber,
 		Command:        command.Command,
 		Username:       command.Username,
 		StockSymbol:    command.Stock,
@@ -80,11 +79,11 @@ func logErrorEvent(ctx *context.Context,transactionNum int64, server string, err
 	insertEventToDB(ctx, event)
 }
 
-func logDebugEvent(ctx *context.Context, transactionNum int64, server, debugMsg string, command *Command) {
+func logDebugEvent(ctx *context.Context, server, debugMsg string, command *Command) {
 	data := &DebugEvent{
 		Timestamp:      time.Now().Unix(),
 		Server:         server,
-		TransactionNum: transactionNum,
+		TransactionNum: command.TransactionNumber,
 		Command:        command.Command,
 		Username:       command.Username,
 		StockSymbol:    command.Stock,

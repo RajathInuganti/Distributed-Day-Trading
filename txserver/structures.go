@@ -17,11 +17,12 @@ const (
 )
 
 type Command struct {
-	Command  string  `json:"Command"`
-	Username string  `json:"Username"`
-	Amount   float32 `json:"Amount"`
-	Stock    string  `json:"Stock"`
-	Filename string  `json:"Filename"`
+	Command           string  `json:"Command"`
+	Username          string  `json:"Username"`
+	Amount            float32 `json:"Amount"`
+	Stock             string  `json:"Stock"`
+	Filename          string  `json:"Filename"`
+	TransactionNumber int64   `json:"transactionNumber"`
 }
 
 type Response struct {
