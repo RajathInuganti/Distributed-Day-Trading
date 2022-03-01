@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -400,17 +401,17 @@ func handle(ctx *context.Context, requestData []byte) *Response {
 	err = verifyAndParseRequestData(command)
 	if err != nil {
 		response.Error = err.Error()
-		logErrorEvent(ctx, "server1", err.Error(), command)
+		logErrorEvent(ctx, getHostname(), err.Error(), command)
 		return response
 	}
 
-	logUserCommandEvent(ctx, "server1", command)
+	logUserCommandEvent(ctx, getHostname(), command)
 
 	responseData, err := handlerMap[command.Command](ctx, command)
 	if err != nil {
 		log.Printf("Error handling command %+v, error: %s", command, err)
 		response.Error = err.Error()
-		logErrorEvent(ctx, "server1", err.Error(), command)
+		logErrorEvent(ctx, getHostname(), err.Error(), command)
 		return response
 	}
 
@@ -438,4 +439,13 @@ func verifyAndParseRequestData(command *Command) error {
 
 	parseErrors.AmountNotConvertibleToFloat = true
 	return nil
+}
+
+func getHostname() string {
+	hostname, errHostname := os.Hostname()
+	if errHostname != nil {
+		hostname = "txServerMain"
+	}
+
+	return hostname
 }
