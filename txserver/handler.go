@@ -51,36 +51,6 @@ func getTransactionNumber() int64 {
 	return transactionNumber
 }
 
-func CreateUserAccount(ctx *context.Context, username string) (*UserAccount, error) {
-	account := &UserAccount{
-		Username:     username,
-		Balance:      0,
-		Created:      time.Now().Unix(),
-		Updated:      time.Now().Unix(),
-		BuyAmounts:   map[string]float64{},
-		SellAmounts:  map[string]float64{},
-		BuyTriggers:  map[string]float64{},
-		SellTriggers: map[string]float64{},
-		Stocks:       map[string]float64{},
-		Transactions: []*Transaction{},
-		RecentBuy:    &CommandHistory{},
-		RecentSell:   &CommandHistory{},
-	}
-
-	bsonBytes, err := bson.Marshal(account)
-	if err != nil {
-		return nil, err
-	}
-
-	accountsCollection := client.Database("test").Collection("Accounts")
-	_, err = accountsCollection.InsertOne(*ctx, bsonBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	return account, nil
-}
-
 func add(ctx *context.Context, command *Command) ([]byte, error) {
 	account, err := find_account(ctx, command.Username)
 	if err == mongo.ErrNoDocuments {
@@ -266,27 +236,6 @@ func sell(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte("sell command successful"), nil
 	}
 	return nil, errors.New("sell failed - insufficient amount of selected stock")
-}
-
-func find_account(ctx *context.Context, username string) (*UserAccount, error) {
-	var account UserAccount
-
-	if parseErrors.stockSymbolEmpty || parseErrors.usernameEmpty || parseErrors.AmountNotConvertibleToFloat {
-		return &account, errors.New("insufficient information")
-	}
-
-	AccountsCollection := client.Database("test").Collection("Accounts")
-	err := AccountsCollection.FindOne(*ctx, bson.M{"username": username}).Decode(&account)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, err
-		}
-
-		log.Printf("Error finding account with username: %s, error: %s", username, err.Error())
-		return nil, errors.New("an Error occured while finding the account")
-	}
-
-	return &account, nil
 }
 
 func set_buy_amount(ctx *context.Context, command *Command) ([]byte, error) {
