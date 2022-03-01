@@ -343,11 +343,63 @@ func quote(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func cancel_set_buy(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+	if command.Username == "" {
+		return nil, errors.New("username is required for cancel_set_buy")
+	}
+
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	account.Balance += account.BuyAmounts[command.Stock]
+	command.Amount = account.BuyAmounts[command.Stock]
+	delete(account.BuyAmounts, command.Stock)
+
+	update := bson.M{
+		"$set": bson.M{
+			"balance":    account.Balance,
+			"buyAmounts": account.BuyAmounts,
+		},
+	}
+
+	err = updateUserAccount(ctx, account.Username, update)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	logAccountTransactionEvent(ctx, getHostname(), "ADD", command)
+	return []byte("Successfully cancelled the SET_BUY_AMOUNT"), nil
 }
 
 func cancel_set_sell(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+	if command.Username == "" {
+		return nil, errors.New("username is required for cancel_set_buy")
+	}
+
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	account.Balance += account.SellAmounts[command.Stock]
+	command.Amount = account.SellAmounts[command.Stock]
+	delete(account.SellAmounts, command.Stock)
+
+	update := bson.M{
+		"$set": bson.M{
+			"balance":     account.Balance,
+			"sellAmounts": account.SellAmounts,
+		},
+	}
+
+	err = updateUserAccount(ctx, account.Username, update)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	logAccountTransactionEvent(ctx, getHostname(), "ADD", command)
+	return []byte("Successfully cancelled the SET_SELL_AMOUNT"), nil
 }
 
 func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
