@@ -374,7 +374,7 @@ func cancel_set_buy(ctx *context.Context, command *Command) ([]byte, error) {
 
 func cancel_set_sell(ctx *context.Context, command *Command) ([]byte, error) {
 	if command.Username == "" {
-		return nil, errors.New("username is required for cancel_set_buy")
+		return nil, errors.New("username is required for cancel_set_sell")
 	}
 
 	account, err := find_account(ctx, command.Username)
