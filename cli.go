@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // Command struct is a representation of an isolated command executed by a user
@@ -24,6 +26,39 @@ type Command struct {
 type Response struct {
 	Data  []byte `json:"data"`
 	Error string `json:"error"`
+}
+
+type Transaction struct {
+	ID              int64   `bson:"id"`
+	Timestamp       int64   `bson:"timestamp"`
+	TransactionType string  `bson:"transactionType"`
+	Amount          float64 `bson:"amount"`
+	Stock           string  `bson:"stock"`
+}
+
+type UserAccount struct {
+	Username     string             `bson:"username"`
+	Balance      float64            `bson:"balance"`
+	Created      int                `bson:"created"`
+	Updated      int                `bson:"updated"`
+	BuyAmounts   map[string]float64 `bson:"buy"`
+	SellAmounts  map[string]float64 `bson:"sell"`
+	BuyTriggers  []*Trigger         `bson:"buyTriggers"`
+	SellTriggers []*Trigger         `bson:"sellTriggers"`
+	Stocks       map[string]float64 `bson:"stocks"`
+	Transactions []*Transaction     `bson:"transactions"`
+	RecentBuy    *CommandHistory    `bson:"recentBuy"`
+	RecentSell   *CommandHistory    `bson:"recentSell"`
+}
+
+type Trigger struct {
+	Stock string  `bson:"stock"`
+	Price float64 `bson:"price"`
+}
+
+type CommandHistory struct {
+	Timestamp int64   `bson:"timestamp"`
+	Amount    float64 `bson:"amount"`
 }
 
 // FromStringToCommandStruct takes a line from the user command file as an input and returns a defined golang structure
@@ -129,8 +164,34 @@ func HandleResponse(cmd *Command, res *http.Response) error {
 		return nil
 	}
 
-	// For DISPLAY_SUMMARY or other commands
-	fmt.Printf("%s\n", string(responseStruct.Data))
+	if cmd.Command == "DISPLAY_SUMMARY" {
+		userAccount := &UserAccount{}
+		err = bson.Unmarshal(responseStruct.Data, userAccount)
+		if err != nil {
+			log.Printf("Error while unmarshalling response body for cmd: %s, rawBytes: %s, error: %s\n", cmd.Command, responseStruct.Data, err)
+		}
+
+		fmt.Printf("-----User Account Summary-----\n")
+		fmt.Printf("Username: %s\n", userAccount.Username)
+		for stock, amount := range userAccount.Stocks {
+			fmt.Printf("stock %s: %f\n", stock, amount)
+		}
+		for _, t := range userAccount.Transactions {
+			fmt.Printf("transaction: %3d, %9d, %s, %s, %f\n", t.ID, t.Timestamp, t.TransactionType, t.Stock, t.Amount)
+		}
+		for _, t := range userAccount.BuyTriggers {
+			fmt.Printf("buy trigger: %s, %f\n", t.Stock, t.Price)
+		}
+		for _, t := range userAccount.SellTriggers {
+			fmt.Printf("sell trigger: %s, %f\n", t.Stock, t.Price)
+		}
+		fmt.Printf("-----End------\n\n")
+
+		return nil
+	}
+
+	// For other commands
+	fmt.Printf("Received response: %s\n", string(responseStruct.Data))
 	return nil
 }
 
