@@ -17,11 +17,12 @@ const (
 )
 
 type Command struct {
-	Command  string  `json:"Command"`
-	Username string  `json:"Username"`
-	Amount   float64 `json:"Amount"`
-	Stock    string  `json:"Stock"`
-	Filename string  `json:"Filename"`
+	Command           string  `json:"Command"`
+	Username          string  `json:"Username"`
+	Amount            float64 `json:"Amount"`
+	Stock             string  `json:"Stock"`
+	Filename          string  `json:"Filename"`
+	TransactionNumber int64   `json:"transactionNumber"`
 }
 
 type Response struct {
@@ -50,17 +51,12 @@ type UserAccount struct {
 	Updated      int64              `bson:"updated"`
 	BuyAmounts   map[string]float64 `bson:"buy"`
 	SellAmounts  map[string]float64 `bson:"sell"`
-	BuyTriggers  []*Trigger         `bson:"buyTriggers"`
-	SellTriggers []*Trigger         `bson:"sellTriggers"`
+	BuyTriggers  map[string]float64 `bson:"buyTriggers"`
+	SellTriggers map[string]float64 `bson:"sellTriggers"`
 	Stocks       map[string]float64 `bson:"stocks"`
 	Transactions []*Transaction     `bson:"transactions"`
 	RecentBuy    *CommandHistory    `bson:"recentBuy"`
 	RecentSell   *CommandHistory    `bson:"recentSell"`
-}
-
-type Trigger struct {
-	Stock string  `bson:"stock"`
-	Price float64 `bson:"price"`
 }
 
 type CommandHistory struct {

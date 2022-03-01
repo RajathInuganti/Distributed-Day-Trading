@@ -7,6 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
+	"strconv"
+	"sync"
 	"time"
 
 	//"os"
@@ -19,6 +22,8 @@ import (
 )
 
 var parseErrors ParsingErrors
+var transactionNumber int64
+var txMutex sync.Mutex
 
 var handlerMap = map[string]func(*context.Context, *Command) ([]byte, error){
 	"ADD":              add,
@@ -39,6 +44,14 @@ var handlerMap = map[string]func(*context.Context, *Command) ([]byte, error){
 	"DUMPLOG":          dumplog,
 }
 
+func getTransactionNumber() int64 {
+	txMutex.Lock()
+	defer txMutex.Unlock()
+
+	transactionNumber += 1
+	return transactionNumber
+}
+
 func CreateUserAccount(ctx *context.Context, username string) (*UserAccount, error) {
 	account := &UserAccount{
 		Username:     username,
@@ -47,8 +60,8 @@ func CreateUserAccount(ctx *context.Context, username string) (*UserAccount, err
 		Updated:      time.Now().Unix(),
 		BuyAmounts:   map[string]float64{},
 		SellAmounts:  map[string]float64{},
-		BuyTriggers:  []*Trigger{},
-		SellTriggers: []*Trigger{},
+		BuyTriggers:  map[string]float64{},
+		SellTriggers: map[string]float64{},
 		Stocks:       map[string]float64{},
 		Transactions: []*Transaction{},
 		RecentBuy:    &CommandHistory{},
@@ -249,7 +262,20 @@ func set_buy_amount(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func set_buy_trigger(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	// check if user has set multiple price triggers for same stock
+
+	if account.BuyAmounts[command.Stock] >= command.Amount {
+		return trigger(ctx, command, "BUY"), nil
+
+	}
+
+	return nil, errors.New("not enough amount for transaction")
 }
 
 func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
@@ -286,7 +312,20 @@ func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func set_sell_trigger(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	// check if user has set multiple price triggers for same stock
+
+	if account.Stocks[command.Stock] >= command.Amount {
+		return trigger(ctx, command, "SELL"), nil
+
+	}
+
+	return nil, errors.New("not enough stock for transaction")
 }
 
 func quote(ctx *context.Context, command *Command) ([]byte, error) {
@@ -384,20 +423,21 @@ func handle(ctx *context.Context, requestData []byte) *Response {
 	}
 
 	response := &Response{}
+	command.TransactionNumber = getTransactionNumber()
 	err = verifyAndParseRequestData(command)
 	if err != nil {
 		response.Error = err.Error()
-		logErrorEvent(ctx, 1, "server1", err.Error(), command)
+		logErrorEvent(ctx, getHostname(), err.Error(), command)
 		return response
 	}
 
-	logUserCommandEvent(ctx, 1, "server1", command)
+	logUserCommandEvent(ctx, getHostname(), command)
 
 	responseData, err := handlerMap[command.Command](ctx, command)
 	if err != nil {
 		log.Printf("Error handling command %+v, error: %s", command, err)
 		response.Error = err.Error()
-		logErrorEvent(ctx, 1, "server1", err.Error(), command)
+		logErrorEvent(ctx, getHostname(), err.Error(), command)
 		return response
 	}
 
@@ -418,4 +458,13 @@ func verifyAndParseRequestData(command *Command) error {
 
 	parseErrors.AmountNotConvertibleToFloat = true
 	return nil
+}
+
+func getHostname() string {
+	hostname, errHostname := os.Hostname()
+	if errHostname != nil {
+		hostname = "txServerMain"
+	}
+
+	return hostname
 }
