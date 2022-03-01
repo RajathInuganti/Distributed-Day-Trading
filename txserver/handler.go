@@ -100,7 +100,7 @@ func add(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	logAccountTransactionEvent(ctx, "server1", command.Command, command)
+	logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 	return []byte("successfully added funds to user account"), nil
 }
 
@@ -132,7 +132,7 @@ func commit_buy(ctx *context.Context, command *Command) ([]byte, error) {
 			return []byte{}, err
 		}
 
-		logAccountTransactionEvent(ctx, "server1", command.Command, command)
+		logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 		return []byte("successfully committed the most recent buy"), nil
 
 	}
@@ -156,7 +156,7 @@ func cancel_buy(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	logAccountTransactionEvent(ctx, "server1", command.Command, command)
+	logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 
 	return []byte("Successfully cancelled the recent BUY"), nil
 }
@@ -189,7 +189,7 @@ func commit_sell(ctx *context.Context, command *Command) ([]byte, error) {
 			return []byte{}, err
 		}
 
-		logAccountTransactionEvent(ctx, "server1", command.Command, command)
+		logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 
 		return []byte("successfully committed the most recent sell"), nil
 
@@ -214,7 +214,7 @@ func cancel_sell(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	logAccountTransactionEvent(ctx, "server1", command.Command, command)
+	logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 	return []byte("Successfully cancelled the recent SELL"), nil
 }
 
@@ -239,7 +239,7 @@ func buy(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	logAccountTransactionEvent(ctx, "server1", command.Command, command)
+	logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 	return []byte("buy command successful"), nil
 
 }
@@ -262,7 +262,7 @@ func sell(ctx *context.Context, command *Command) ([]byte, error) {
 			return []byte{}, err
 		}
 
-		logAccountTransactionEvent(ctx, "server1", command.Command, command)
+		logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 		return []byte("sell command successful"), nil
 	}
 	return nil, errors.New("sell failed - insufficient amount of selected stock")
