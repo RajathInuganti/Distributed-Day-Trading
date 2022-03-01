@@ -39,8 +39,8 @@ type Transaction struct {
 type UserAccount struct {
 	Username     string             `bson:"username"`
 	Balance      float64            `bson:"balance"`
-	Created      int                `bson:"created"`
-	Updated      int                `bson:"updated"`
+	Created      int64              `bson:"created"`
+	Updated      int64              `bson:"updated"`
 	BuyAmounts   map[string]float64 `bson:"buy"`
 	SellAmounts  map[string]float64 `bson:"sell"`
 	BuyTriggers  []*Trigger         `bson:"buyTriggers"`
