@@ -16,23 +16,34 @@ type commandHandler struct {
 	queue     string
 	lock      *sync.Mutex
 	ch        *amqp.Channel
-	responses *map[string]string
+	responses *map[string][]byte
 }
 
 func (handler commandHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	var body Command
-	if request.Method == "POST" {
-
-		err := json.NewDecoder(request.Body).Decode(&body)
-		failOnError("Failed to read HTTP request body", err)
-
-		command, err := json.Marshal(body)
-		failOnError("Failed to unmarshal HTTP request body", err)
-
-		handler.txCount = handler.txCount + 1
-		Publish(handler.ch, handler.queue, command, strconv.Itoa(handler.txCount))
+	if request.Method != "POST" {
+		return
 	}
+
+	err := json.NewDecoder(request.Body).Decode(&body)
+	failOnError("Failed to read HTTP request body", err)
+
+	command, err := json.Marshal(body)
+	failOnError("Failed to unmarshal HTTP request body", err)
+
+	handler.txCount = handler.txCount + 1
+	Publish(handler.ch, handler.queue, command, strconv.Itoa(handler.txCount))
+
+	value, ok := (*handler.responses)[strconv.Itoa(handler.txCount)]
+	for !ok {
+		value, ok = (*handler.responses)[strconv.Itoa(handler.txCount)]
+	}
+	_, err = writer.Write(value)
+	if err != nil {
+		log.Printf("Error writing response: %s", err)
+	}
+
 }
 
 func Publish(ch *amqp.Channel, queue string, command []byte, txNum string) {
@@ -50,7 +61,7 @@ func Publish(ch *amqp.Channel, queue string, command []byte, txNum string) {
 	failOnError("Failed to publish a message", err)
 }
 
-func startQueueService(ch *amqp.Channel, queue string, responses *map[string]string, lock *sync.Mutex) {
+func startQueueService(ch *amqp.Channel, queue string, responses *map[string][]byte, lock *sync.Mutex) {
 
 	q, err := ch.QueueDeclare(
 		queue, // name
@@ -74,15 +85,14 @@ func startQueueService(ch *amqp.Channel, queue string, responses *map[string]str
 	failOnError("Failed to register a consumer", err)
 
 	for message := range messages {
-		messageJSON := string(message.Body)
-		log.Printf("Received message: %s", messageJSON)
+		(*responses)[message.CorrelationId] = message.Body
 	}
 }
 
 func main() {
 
 	containerID := os.Getenv("HOSTNAME")
-	responses := make(map[string]string)
+	responses := make(map[string][]byte)
 	var lock sync.Mutex
 
 	ch := setupChannel()

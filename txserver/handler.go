@@ -58,9 +58,12 @@ func add(ctx *context.Context, command *Command) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-	} else {
+	}
+
+	if err != nil && err != mongo.ErrNoDocuments {
 		return nil, fmt.Errorf("failed to add funds for %s, error: %s", command.Username, err.Error())
 	}
+
 	account.Balance += command.Amount
 
 	update := bson.M{"$set": bson.D{primitive.E{Key: "balance", Value: account.Balance}}}
@@ -80,7 +83,7 @@ func commit_buy(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, fmt.Errorf("failed to commit buy for %s, error: %s", command.Username, err.Error())
 	}
 
-	stock := account.RecentBuy.stock
+	stock := account.RecentBuy.Stock
 	stock_amount := account.RecentBuy.Amount
 	buy_timestamp := account.RecentBuy.Timestamp
 
@@ -117,7 +120,7 @@ func cancel_buy(ctx *context.Context, command *Command) ([]byte, error) {
 
 	account.RecentBuy.Timestamp = 0
 	account.RecentBuy.Amount = 0
-	account.RecentSell.stock = ""
+	account.RecentSell.Stock = ""
 
 	update := bson.M{"$set": bson.D{primitive.E{Key: "recentSell", Value: account.RecentSell}}}
 
@@ -137,7 +140,7 @@ func commit_sell(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, fmt.Errorf("failed to commit buy for %s, error: %s", command.Username, err.Error())
 	}
 
-	stock := account.RecentSell.stock
+	stock := account.RecentSell.Stock
 	stock_amount := account.RecentSell.Amount
 	sell_timestamp := account.RecentSell.Timestamp
 
@@ -175,7 +178,7 @@ func cancel_sell(ctx *context.Context, command *Command) ([]byte, error) {
 
 	account.RecentSell.Timestamp = 0
 	account.RecentSell.Amount = 0
-	account.RecentSell.stock = ""
+	account.RecentSell.Stock = ""
 
 	update := bson.M{"$set": bson.D{primitive.E{Key: "recentSell", Value: account.RecentSell}}}
 
@@ -200,7 +203,7 @@ func buy(ctx *context.Context, command *Command) ([]byte, error) {
 
 	account.RecentBuy.Amount = command.Amount
 	account.RecentBuy.Timestamp = time.Now().Unix()
-	account.RecentBuy.stock = command.Stock
+	account.RecentBuy.Stock = command.Stock
 
 	update := bson.M{"$set": bson.D{primitive.E{Key: "recentBuy", Value: account.RecentBuy}}}
 
@@ -223,7 +226,7 @@ func sell(ctx *context.Context, command *Command) ([]byte, error) {
 	if account.Stocks[command.Stock] >= command.Amount {
 		account.RecentSell.Amount = command.Amount
 		account.RecentSell.Timestamp = time.Now().Unix()
-		account.RecentSell.stock = command.Stock
+		account.RecentSell.Stock = command.Stock
 
 		update := bson.M{"$set": bson.D{primitive.E{Key: "recentSell", Value: account.RecentSell}}}
 
@@ -273,15 +276,31 @@ func set_buy_amount(ctx *context.Context, command *Command) ([]byte, error) {
 
 func set_buy_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 
+	var price_adjustment bool = false
+
 	account, err := find_account(ctx, command.Username)
 	if err != nil {
 		return nil, err
 	}
 
-	// check if user has set multiple price triggers for same stock
+	price, found := account.BuyTriggers[command.Stock]
+	if found {
+		price_adjustment = true
+	}
+	account.BuyTriggers[command.Stock] = command.Amount
 
 	if account.BuyAmounts[command.Stock] >= command.Amount {
-		return trigger(ctx, command, "BUY"), nil
+		update := bson.M{
+			"$set": bson.M{
+				"buyTriggers": account.BuyTriggers,
+			},
+		}
+		err := updateUserAccount(ctx, command.Username, update)
+		if err != nil {
+			log.Printf("Error updating account\n")
+		}
+
+		return trigger(ctx, command, price_adjustment, price, "BUY"), nil
 
 	}
 
@@ -323,15 +342,34 @@ func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
 
 func set_sell_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 
+	var price_adjustment bool = false
+
 	account, err := find_account(ctx, command.Username)
 	if err != nil {
 		return nil, err
 	}
 
+	price, found := account.SellTriggers[command.Stock]
+	if found {
+		price_adjustment = true
+	}
+	account.SellTriggers[command.Stock] = command.Amount
+
 	// check if user has set multiple price triggers for same stock
 
 	if account.Stocks[command.Stock] >= command.Amount {
-		return trigger(ctx, command, "SELL"), nil
+		update := bson.M{
+			"$set": bson.M{
+				"sellTriggers": account.SellTriggers,
+			},
+		}
+
+		err := updateUserAccount(ctx, command.Username, update)
+		if err != nil {
+			log.Printf("Error updating account\n")
+		}
+
+		return trigger(ctx, command, price_adjustment, price, "SELL"), nil
 
 	}
 
@@ -344,12 +382,11 @@ func quote(ctx *context.Context, command *Command) ([]byte, error) {
 	}
 
 	result := get_quote(command.Stock, command.Username)
+
 	price, timestamp, cryptoKey := parseQuote(result)
-
-	responseString := fmt.Sprintf("%s: %f", command.Stock, price)
-
 	logQuoteServerEvent(ctx, getHostname(), cryptoKey, timestamp, price, command)
 
+	responseString := fmt.Sprintf("%s: %f", command.Stock, price)
 	return []byte(responseString), nil
 }
 
@@ -414,6 +451,7 @@ func cancel_set_sell(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
+	log.Printf("display_summary ran")
 	if command.Username == "" {
 		return nil, errors.New("username is required for DISPLAY_SUMMARY")
 	}
@@ -432,6 +470,7 @@ func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
+	log.Printf("dumplog ran")
 	eventCollection := client.Database("test").Collection("Events")
 
 	// fetch results from mongo
@@ -487,14 +526,17 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 	return xmlEncoding, nil
 }
 
-func handle(ctx *context.Context, requestData []byte) *Response {
-	command := &Command{}
-	err := json.Unmarshal(requestData, command)
+func handle(ctx *context.Context, data []byte) *Response {
+	requestDataStruct := &requestData{}
+	err := json.Unmarshal(data, requestDataStruct)
 	if err != nil {
-		log.Printf("Failed to unmarshal message: %+v", requestData)
+		log.Printf("Failed to unmarshal message: %s, error: %s", string(data), err.Error())
 		return &Response{Data: []byte{}, Error: "Invalid data sent"}
 	}
 
+	command := fromRequestDataToCommand(requestDataStruct)
+
+	log.Printf("Received command: %+v", command)
 	response := &Response{}
 	command.TransactionNumber = getTransactionNumber()
 	err = verifyAndParseRequestData(command)
