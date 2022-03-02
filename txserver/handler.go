@@ -66,7 +66,7 @@ func add(ctx *context.Context, command *Command) ([]byte, error) {
 
 	account.Balance += command.Amount
 
-	update := bson.M{"$set": bson.D{primitive.E{Key: "balance", Value: account.Balance}}}
+	update := bson.M{"$set": bson.M{"balance": account.Balance}}
 
 	err = updateUserAccount(ctx, account.Username, update)
 	if err != nil {
