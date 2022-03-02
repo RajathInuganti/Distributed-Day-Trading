@@ -6,20 +6,19 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"sync"
 
 	"github.com/streadway/amqp"
 )
 
+var txCount int = 0
+
 type commandHandler struct {
-	txCount   int
 	queue     string
-	lock      *sync.Mutex
 	ch        *amqp.Channel
-	responses *map[string][]byte
+	responses *map[string]chan []byte
 }
 
-func (handler commandHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+func (handler *commandHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	var body Command
 	if request.Method != "POST" {
@@ -32,18 +31,20 @@ func (handler commandHandler) ServeHTTP(writer http.ResponseWriter, request *htt
 	command, err := json.Marshal(body)
 	failOnError("Failed to unmarshal HTTP request body", err)
 
-	handler.txCount = handler.txCount + 1
-	Publish(handler.ch, handler.queue, command, strconv.Itoa(handler.txCount))
+	txCount = txCount + 1
+	CorrelationId := strconv.Itoa(txCount)
 
-	value, ok := (*handler.responses)[strconv.Itoa(handler.txCount)]
-	for !ok {
-		value, ok = (*handler.responses)[strconv.Itoa(handler.txCount)]
-	}
-	_, err = writer.Write(value)
+	channel := make(chan []byte)
+	(*handler.responses)[CorrelationId] = channel
+
+	Publish(handler.ch, handler.queue, command, CorrelationId)
+
+	response := <-channel
+	_, err = writer.Write(response)
 	if err != nil {
-		log.Printf("Error writing response: %s", err)
+		log.Printf("Unable to write response: %s. Error: %s\n", string(response), err)
 	}
-
+	log.Printf("txCount : %d\n", txCount)
 }
 
 func Publish(ch *amqp.Channel, queue string, command []byte, txNum string) {
@@ -61,7 +62,7 @@ func Publish(ch *amqp.Channel, queue string, command []byte, txNum string) {
 	failOnError("Failed to publish a message", err)
 }
 
-func startQueueService(ch *amqp.Channel, queue string, responses *map[string][]byte, lock *sync.Mutex) {
+func startQueueService(ch *amqp.Channel, queue string, responses *map[string]chan []byte) {
 
 	q, err := ch.QueueDeclare(
 		queue, // name
@@ -85,22 +86,22 @@ func startQueueService(ch *amqp.Channel, queue string, responses *map[string][]b
 	failOnError("Failed to register a consumer", err)
 
 	for message := range messages {
-		(*responses)[message.CorrelationId] = message.Body
+		channel := (*responses)[message.CorrelationId]
+		channel <- message.Body
 	}
 }
 
 func main() {
 
 	containerID := os.Getenv("HOSTNAME")
-	responses := make(map[string][]byte)
-	var lock sync.Mutex
+	responses := make(map[string]chan []byte)
 
 	ch := setupChannel()
-	go startQueueService(ch, containerID, &responses, &lock)
+	go startQueueService(ch, containerID, &responses)
 
-	handler := commandHandler{lock: &lock, responses: &responses, ch: ch, queue: containerID, txCount: 0}
+	handler := commandHandler{responses: &responses, ch: ch, queue: containerID}
 
-	http.Handle("/transaction", handler)
+	http.Handle("/transaction", &handler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 
 }

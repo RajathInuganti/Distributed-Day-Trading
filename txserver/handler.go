@@ -17,7 +17,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var parseErrors ParsingErrors
@@ -93,10 +92,15 @@ func commit_buy(ctx *context.Context, command *Command) ([]byte, error) {
 		account.Balance -= stock_amount
 		account.Stocks[stock] += stock_amount
 
+		account.RecentBuy.Amount = 0
+		account.RecentBuy.Stock = ""
+		account.RecentBuy.Timestamp = 0
+
 		update := bson.M{
 			"$set": bson.M{
-				"balance": account.Balance,
-				"stocks":  account.Stocks,
+				"balance":   account.Balance,
+				"stocks":    account.Stocks,
+				"recentBuy": account.RecentBuy,
 			},
 		}
 
@@ -109,7 +113,8 @@ func commit_buy(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte("successfully committed the most recent buy"), nil
 
 	}
-	return nil, errors.New("commit buy executed after 60 seconds - failed")
+
+	return nil, errors.New("commit buy executed after 60 seconds, or no buy was commited - failed")
 }
 
 func cancel_buy(ctx *context.Context, command *Command) ([]byte, error) {
@@ -150,10 +155,15 @@ func commit_sell(ctx *context.Context, command *Command) ([]byte, error) {
 		account.Balance += stock_amount
 		account.Stocks[stock] -= stock_amount
 
+		account.RecentSell.Amount = 0
+		account.RecentSell.Stock = ""
+		account.RecentSell.Timestamp = 0
+
 		update := bson.M{
 			"$set": bson.M{
-				"balance": account.Balance,
-				"stocks":  account.Stocks,
+				"balance":    account.Balance,
+				"stocks":     account.Stocks,
+				"recentSell": account.RecentSell,
 			},
 		}
 
@@ -205,7 +215,10 @@ func buy(ctx *context.Context, command *Command) ([]byte, error) {
 	account.RecentBuy.Timestamp = time.Now().Unix()
 	account.RecentBuy.Stock = command.Stock
 
-	update := bson.M{"$set": bson.D{primitive.E{Key: "recentBuy", Value: account.RecentBuy}}}
+	update := bson.M{
+		"$set": bson.M{
+			"recentBuy": account.RecentBuy,
+		}}
 
 	err = updateUserAccount(ctx, account.Username, update)
 	if err != nil {
@@ -257,17 +270,15 @@ func set_buy_amount(ctx *context.Context, command *Command) ([]byte, error) {
 		account.Balance = account.Balance - command.Amount
 		account.BuyAmounts[command.Stock] = command.Amount
 
-		opts := options.Update().SetUpsert(true)
-		filter := bson.M{"username": command.Username}
-
-		accountsCollection := client.Database("test").Collection("Accounts")
-		result, err := accountsCollection.UpdateOne(context.TODO(), filter, account, opts)
-		if err != nil {
-			return nil, errors.New("account update unsuccessful")
+		update := bson.M{"$set": bson.M{
+			"balance":    account.RecentSell,
+			"buyAmounts": account.BuyAmounts,
+		},
 		}
 
-		if result.MatchedCount == 1 {
-			return []byte("Buy amount allocated"), nil
+		err = updateUserAccount(ctx, command.Username, update)
+		if err != nil {
+			return []byte{}, err
 		}
 	}
 
@@ -316,24 +327,22 @@ func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
 
 	if account.SellAmounts[command.Stock] > 0 {
 		account.Stocks[command.Stock] = account.Stocks[command.Stock] + account.SellAmounts[command.Stock]
-		account.BuyAmounts[command.Stock] = 0
+		account.SellAmounts[command.Stock] = 0
 	}
 
 	if account.Stocks[command.Stock] >= command.Amount {
 		account.Stocks[command.Stock] = account.Stocks[command.Stock] - command.Amount
 		account.SellAmounts[command.Stock] = command.Amount
 
-		opts := options.Update().SetUpsert(true)
-		filter := bson.M{"username": command.Username}
-
-		accountsCollection := client.Database("test").Collection("Accounts")
-		result, err := accountsCollection.UpdateOne(context.TODO(), filter, account, opts)
-		if err != nil {
-			return nil, errors.New("account update unsuccessful")
+		update := bson.M{"$set": bson.M{
+			"stocks":      account.Stocks,
+			"sellAmounts": account.SellAmounts,
+		},
 		}
 
-		if result.MatchedCount == 1 {
-			return []byte("Sell amount allocated"), nil
+		err = updateUserAccount(ctx, command.Username, update)
+		if err != nil {
+			return []byte{}, err
 		}
 	}
 
@@ -383,7 +392,11 @@ func quote(ctx *context.Context, command *Command) ([]byte, error) {
 
 	result := get_quote(command.Stock, command.Username)
 
-	price, timestamp, cryptoKey := parseQuote(result)
+	price, timestamp, cryptoKey, err := parseQuote(result)
+	if err != nil {
+		return []byte{}, err
+	}
+
 	logQuoteServerEvent(ctx, getHostname(), cryptoKey, timestamp, price, command)
 
 	responseString := fmt.Sprintf("%s: %f", command.Stock, price)
