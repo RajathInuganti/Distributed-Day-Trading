@@ -78,11 +78,7 @@ func add(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func commit_buy(ctx *context.Context, command *Command) ([]byte, error) {
-	account, err := 
-  
-  
-  
-  (ctx, command.Username)
+	account, err := find_account(ctx, command.Username)
 	if err != nil {
 		return []byte{}, fmt.Errorf("failed to commit buy for %s, error: %s", command.Username, err.Error())
 	}
