@@ -295,7 +295,10 @@ func set_buy_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 				"buyTriggers": account.BuyTriggers,
 			},
 		}
-		updateUserAccount(ctx, command.Username, update)
+		err := updateUserAccount(ctx, command.Username, update)
+		if err != nil {
+			log.Printf("Error updating account\n")
+		}
 
 		return trigger(ctx, command, price_adjustment, price, "BUY"), nil
 
@@ -362,6 +365,10 @@ func set_sell_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 		}
 
 		updateUserAccount(ctx, command.Username, update)
+		if err != nil {
+			log.Printf("Error updating account\n")
+		}
+
 		return trigger(ctx, command, price_adjustment, price, "SELL"), nil
 
 	}
