@@ -276,15 +276,28 @@ func set_buy_amount(ctx *context.Context, command *Command) ([]byte, error) {
 
 func set_buy_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 
+	var price_adjustment bool = false
+
 	account, err := find_account(ctx, command.Username)
 	if err != nil {
 		return nil, err
 	}
 
-	// check if user has set multiple price triggers for same stock
+	price, found := account.BuyTriggers[command.Stock]
+	if found {
+		price_adjustment = true
+	}
+	account.BuyTriggers[command.Stock] = float64(command.Amount)
 
 	if account.BuyAmounts[command.Stock] >= command.Amount {
-		return trigger(ctx, command, "BUY"), nil
+		update := bson.M{
+			"$set": bson.M{
+				"buyTriggers": account.BuyTriggers,
+			},
+		}
+		updateUserAccount(ctx, command.Username, update)
+
+		return trigger(ctx, command, price_adjustment, price, "BUY"), nil
 
 	}
 
@@ -326,15 +339,30 @@ func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
 
 func set_sell_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 
+	var price_adjustment bool = false
+
 	account, err := find_account(ctx, command.Username)
 	if err != nil {
 		return nil, err
 	}
 
+	price, found := account.SellTriggers[command.Stock]
+	if found {
+		price_adjustment = true
+	}
+	account.SellTriggers[command.Stock] = float64(command.Amount)
+
 	// check if user has set multiple price triggers for same stock
 
 	if account.Stocks[command.Stock] >= command.Amount {
-		return trigger(ctx, command, "SELL"), nil
+		update := bson.M{
+			"$set": bson.M{
+				"sellTriggers": account.SellTriggers,
+			},
+		}
+
+		updateUserAccount(ctx, command.Username, update)
+		return trigger(ctx, command, price_adjustment, price, "SELL"), nil
 
 	}
 

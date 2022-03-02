@@ -9,6 +9,8 @@ import (
 
 	"github.com/emirpasic/gods/maps/treemap"
 	"github.com/emirpasic/gods/sets/hashset"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 /*
@@ -57,26 +59,26 @@ type poll struct {
 func (p *poll) buy_poll(ctx *context.Context, list *map[string]*treemap.Map, lock *sync.Mutex) []byte {
 
 	if p.buyPollingInProgress {
-		return nil
+		return []byte("Buy trigger polling initiated")
 	}
 
-	go polling_thread(ctx, list, lock, &p.buyPollingInProgress)
+	go polling_thread(ctx, list, lock, &p.buyPollingInProgress, "BUY")
 	p.buyPollingInProgress = true
-	return nil
+	return []byte("Buy trigger polling initiated")
 }
 
 func (p *poll) sell_poll(ctx *context.Context, list *map[string]*treemap.Map, lock *sync.Mutex) []byte {
 
 	if p.sellPollingInProgress {
-		return nil
+		return []byte("Sell trigger polling initiated")
 	}
 
-	go polling_thread(ctx, list, lock, &p.sellPollingInProgress)
+	go polling_thread(ctx, list, lock, &p.sellPollingInProgress, "SELL")
 	p.sellPollingInProgress = true
-	return nil
+	return []byte("Sell trigger polling initiated")
 }
 
-func polling_thread(ctx *context.Context, list *map[string]*treemap.Map, lock *sync.Mutex, pollingInProgress *bool) {
+func polling_thread(ctx *context.Context, list *map[string]*treemap.Map, lock *sync.Mutex, pollingInProgress *bool, trigger string) {
 
 	for len(*list) != 0 {
 		for stock := range *list {
@@ -97,28 +99,62 @@ func polling_thread(ctx *context.Context, list *map[string]*treemap.Map, lock *s
 					break
 				}
 
-				// fulfill the trigger.
-				lock.Lock()
-
 				Iuser_list, _ := price_wait_list.Get(price)
 				user_list := Iuser_list.(*hashset.Set)
 				usernames := user_list.Values()
-				for index := range usernames {
-					username := usernames[index].(string)
+				go update_account(ctx, trigger, stock, usernames)
 
-					account, err := find_account(ctx, username)
-					if err != nil {
-						log.Println("No account found")
-					}
-					log.Printf("Account: %+v", account)
-				}
+				lock.Lock()
+				price_wait_list.Remove(price)
+				(*list)[stock] = price_wait_list
+				lock.Unlock()
 			}
 		}
 	}
 	*pollingInProgress = false
 }
 
-func trigger(ctx *context.Context, command *Command, trigger string) []byte {
+func update_account(ctx *context.Context, trigger string, stock string, usernames []interface{}) {
+	for index := range usernames {
+		username := usernames[index].(string)
+		var update primitive.M
+
+		account, err := find_account(ctx, username)
+		if err != nil {
+			log.Println("No account found")
+		}
+
+		if trigger == "BUY" {
+			account.Stocks[stock] += account.BuyAmounts[stock]
+			delete(account.BuyAmounts, stock)
+			delete(account.BuyTriggers, stock)
+
+			update = bson.M{
+				"$set": bson.M{
+					"buyAmounts":  account.BuyAmounts,
+					"buyTriggers": account.BuyTriggers,
+					"stocks":      account.Stocks,
+				},
+			}
+		} else {
+			account.Balance += account.SellAmounts[stock]
+			delete(account.SellAmounts, stock)
+			delete(account.SellTriggers, stock)
+
+			update = bson.M{
+				"$set": bson.M{
+					"balance":      account.Balance,
+					"sellAmounts":  account.SellAmounts,
+					"sellTriggers": account.SellTriggers,
+				},
+			}
+		}
+
+		updateUserAccount(ctx, username, update)
+	}
+}
+
+func trigger(ctx *context.Context, command *Command, price_adjustment bool, previous_price float64, trigger string) []byte {
 
 	var lock *sync.Mutex
 	var list *map[string]*treemap.Map
@@ -136,6 +172,32 @@ func trigger(ctx *context.Context, command *Command, trigger string) []byte {
 
 	lock.Lock()
 	defer lock.Unlock()
+
+	if price_adjustment {
+		price_wait_list, _ := (*list)[command.Stock]
+		Iuser_list, _ := price_wait_list.Get(previous_price)
+		user_list := Iuser_list.(*hashset.Set)
+		user_list.Remove(command.Username)
+		price_wait_list.Put(previous_price, user_list)
+		// check if price_wait_list is empty
+
+		Iuser_list, found := price_wait_list.Get(command.Amount)
+		if !found {
+			user_list := hashset.New()
+			user_list.Add(command.Username)
+			price_wait_list.Put(command.Amount, user_list)
+			(*list)[command.Stock] = price_wait_list
+
+			return trigger_poll(ctx, list, lock)
+		}
+
+		user_list = Iuser_list.(*hashset.Set)
+		user_list.Add(command.Username)
+		price_wait_list.Put(command.Amount, user_list)
+		(*list)[command.Stock] = price_wait_list
+
+		return trigger_poll(ctx, list, lock)
+	}
 
 	price_wait_list, found := (*list)[command.Stock]
 	if !found {

@@ -32,17 +32,16 @@ func (handler commandHandler) ServeHTTP(writer http.ResponseWriter, request *htt
 	command, err := json.Marshal(body)
 	failOnError("Failed to unmarshal HTTP request body", err)
 
-	correlationID := strconv.Itoa(handler.txCount + 1)
-	Publish(handler.ch, handler.queue, command, correlationID)
+	handler.txCount = handler.txCount + 1
+	Publish(handler.ch, handler.queue, command, strconv.Itoa(handler.txCount))
 
-	for {
-		if _, ok := (*handler.responses)[correlationID]; ok {
-			_, err := writer.Write((*handler.responses)[correlationID])
-			if err != nil {
-				log.Printf("Failed to write response for message: %s", err)
-			}
-			return
-		}
+	value, ok := (*handler.responses)[strconv.Itoa(handler.txCount)]
+	for !ok {
+		value, ok = (*handler.responses)[strconv.Itoa(handler.txCount)]
+	}
+	_, err = writer.Write(value)
+	if err != nil {
+		log.Printf("Error writing response: %s", err)
 	}
 
 }
