@@ -43,14 +43,13 @@ type UserAccount struct {
 	Updated      int64              `bson:"updated"`
 	BuyAmounts   map[string]float64 `bson:"buy"`
 	SellAmounts  map[string]float64 `bson:"sell"`
-	BuyTriggers  []*Trigger         `bson:"buyTriggers"`
-	SellTriggers []*Trigger         `bson:"sellTriggers"`
+	BuyTriggers  map[string]float64 `bson:"buyTriggers"`
+	SellTriggers map[string]float64 `bson:"sellTriggers"`
 	Stocks       map[string]float64 `bson:"stocks"`
 	Transactions []*Transaction     `bson:"transactions"`
 	RecentBuy    *CommandHistory    `bson:"recentBuy"`
 	RecentSell   *CommandHistory    `bson:"recentSell"`
 }
-
 type Trigger struct {
 	Stock string  `bson:"stock"`
 	Price float64 `bson:"price"`
@@ -59,6 +58,7 @@ type Trigger struct {
 type CommandHistory struct {
 	Timestamp int64   `bson:"timestamp"`
 	Amount    float64 `bson:"amount"`
+	Stock     string  `bson:"stock"`
 }
 
 // FromStringToCommandStruct takes a line from the user command file as an input and returns a defined golang structure
@@ -173,6 +173,7 @@ func HandleResponse(cmd *Command, res *http.Response) error {
 
 		fmt.Printf("-----User Account Summary-----\n")
 		fmt.Printf("Username: %s\n", userAccount.Username)
+		fmt.Printf("balance: %f\n", userAccount.Balance)
 		for stock, amount := range userAccount.Stocks {
 			fmt.Printf("stock %s: %f\n", stock, amount)
 		}
@@ -180,10 +181,10 @@ func HandleResponse(cmd *Command, res *http.Response) error {
 			fmt.Printf("transaction: %3d, %9d, %s, %s, %f\n", t.ID, t.Timestamp, t.TransactionType, t.Stock, t.Amount)
 		}
 		for _, t := range userAccount.BuyTriggers {
-			fmt.Printf("buy trigger: %s, %f\n", t.Stock, t.Price)
+			fmt.Printf("buy trigger: %v\n", t)
 		}
 		for _, t := range userAccount.SellTriggers {
-			fmt.Printf("sell trigger: %s, %f\n", t.Stock, t.Price)
+			fmt.Printf("sell trigger: %v\n", t)
 		}
 		fmt.Printf("-----End------\n\n")
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"strconv"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
@@ -16,6 +17,15 @@ const (
 	EventDebug              = "debugEvent"
 )
 
+type requestData struct {
+	Command           string `json:"Command"`
+	Username          string `json:"Username"`
+	Amount            string `json:"Amount"`
+	Stock             string `json:"Stock"`
+	Filename          string `json:"Filename"`
+	TransactionNumber int64  `json:"transactionNumber"`
+}
+
 type Command struct {
 	Command           string  `json:"Command"`
 	Username          string  `json:"Username"`
@@ -23,6 +33,20 @@ type Command struct {
 	Stock             string  `json:"Stock"`
 	Filename          string  `json:"Filename"`
 	TransactionNumber int64   `json:"transactionNumber"`
+}
+
+func fromRequestDataToCommand(r *requestData) *Command {
+	amount, err := strconv.ParseFloat(r.Amount, 64)
+	if err != nil {
+		amount = 0
+	}
+	return &Command{
+		Command:  r.Command,
+		Username: r.Username,
+		Amount:   amount,
+		Stock:    r.Stock,
+		Filename: r.Filename,
+	}
 }
 
 type Response struct {
@@ -62,7 +86,7 @@ type UserAccount struct {
 type CommandHistory struct {
 	Timestamp int64   `bson:"timestamp"`
 	Amount    float64 `bson:"amount"`
-	stock     string  `bson:"stock"`
+	Stock     string  `bson:"stock"`
 }
 
 // Event struct describes any 'event' that occurs in the system (any of UserCommand, QuoteServer, AccountTransaction, SystemEvent, ErrorEvent)
