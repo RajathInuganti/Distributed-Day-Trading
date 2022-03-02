@@ -287,7 +287,7 @@ func set_buy_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 	if found {
 		price_adjustment = true
 	}
-	account.BuyTriggers[command.Stock] = float64(command.Amount)
+	account.BuyTriggers[command.Stock] = command.Amount
 
 	if account.BuyAmounts[command.Stock] >= command.Amount {
 		update := bson.M{
@@ -353,7 +353,7 @@ func set_sell_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 	if found {
 		price_adjustment = true
 	}
-	account.SellTriggers[command.Stock] = float64(command.Amount)
+	account.SellTriggers[command.Stock] = command.Amount
 
 	// check if user has set multiple price triggers for same stock
 
