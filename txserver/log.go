@@ -21,7 +21,7 @@ func logUserCommandEvent(ctx *context.Context, server string, command *Command) 
 	insertEventToDB(ctx, event)
 }
 
-func logQuoteServerEvent(ctx *context.Context, server, cryptokey string, quoteServerTime int64, command *Command) {
+func logQuoteServerEvent(ctx *context.Context, server, cryptokey string, quoteServerTime int64, price float64, command *Command) {
 	data := &QuoteServer{
 		Timestamp:       time.Now().Unix(),
 		Server:          server,
@@ -30,6 +30,7 @@ func logQuoteServerEvent(ctx *context.Context, server, cryptokey string, quoteSe
 		Username:        command.Username,
 		QuoteServerTime: quoteServerTime,
 		Cryptokey:       cryptokey,
+		Price:           price,
 	}
 	event := &Event{EventType: EventQuoteServer, Data: data}
 	insertEventToDB(ctx, event)

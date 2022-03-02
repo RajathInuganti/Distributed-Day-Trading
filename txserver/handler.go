@@ -339,7 +339,18 @@ func set_sell_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func quote(ctx *context.Context, command *Command) ([]byte, error) {
-	return []byte{}, nil
+	if command.Stock == "" || command.Username == "" {
+		return nil, errors.New("quote command requires stock and username")
+	}
+
+	result := get_quote(command.Stock, command.Username)
+	price, timestamp, cryptoKey := parseQuote(result)
+
+	responseString := fmt.Sprintf("%s: %f", command.Stock, price)
+
+	logQuoteServerEvent(ctx, getHostname(), cryptoKey, timestamp, price, command)
+
+	return []byte(responseString), nil
 }
 
 func cancel_set_buy(ctx *context.Context, command *Command) ([]byte, error) {

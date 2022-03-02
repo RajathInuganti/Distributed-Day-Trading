@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"strconv"
 	"strings"
 )
 
@@ -19,6 +20,15 @@ func quote_server_connect() net.Conn {
 	}
 
 	return conn
+}
+
+func parseQuote(arr []string) (price float64, timestamp int64, crypto string) {
+	crypto = arr[4]
+	timestamp32, _ := strconv.Atoi(arr[3])
+	timestamp = int64(timestamp32)
+	price, _ = strconv.ParseFloat(arr[0], 64)
+
+	return price, timestamp, crypto
 }
 
 //Use for testing on UVic machine
