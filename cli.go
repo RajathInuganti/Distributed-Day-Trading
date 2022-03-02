@@ -118,7 +118,7 @@ func HandleCommand(command *Command) error {
 		return err
 	}
 
-	res, err := http.Post("http://localhost:8080/", "application/json", &buffer)
+	res, err := http.Post("http://localhost:8080/transaction", "application/json", &buffer)
 	if err != nil {
 		log.Printf("Error while sending request: %s for command: %+v", err, *command)
 		return err
