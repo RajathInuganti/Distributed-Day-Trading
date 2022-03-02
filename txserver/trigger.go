@@ -150,7 +150,10 @@ func update_account(ctx *context.Context, trigger string, stock string, username
 			}
 		}
 
-		updateUserAccount(ctx, username, update)
+		err = updateUserAccount(ctx, username, update)
+		if err != nil {
+			log.Printf("Error updating account\n")
+		}
 	}
 }
 
@@ -174,7 +177,7 @@ func trigger(ctx *context.Context, command *Command, price_adjustment bool, prev
 	defer lock.Unlock()
 
 	if price_adjustment {
-		price_wait_list, _ := (*list)[command.Stock]
+		price_wait_list := (*list)[command.Stock]
 		Iuser_list, _ := price_wait_list.Get(previous_price)
 		user_list := Iuser_list.(*hashset.Set)
 		user_list.Remove(command.Username)
