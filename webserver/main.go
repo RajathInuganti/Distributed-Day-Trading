@@ -10,7 +10,7 @@ import (
 	"github.com/streadway/amqp"
 )
 
-var txCount int = 0
+var txCount int
 
 type commandHandler struct {
 	queue     string
@@ -44,7 +44,8 @@ func (handler *commandHandler) ServeHTTP(writer http.ResponseWriter, request *ht
 	if err != nil {
 		log.Printf("Unable to write response: %s. Error: %s\n", string(response), err)
 	}
-	log.Printf("txCount : %d\n", txCount)
+
+	delete(*handler.responses, CorrelationId)
 }
 
 func Publish(ch *amqp.Channel, queue string, command []byte, txNum string) {
