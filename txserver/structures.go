@@ -73,8 +73,8 @@ type UserAccount struct {
 	Balance      float64            `bson:"balance"`
 	Created      int64              `bson:"created"`
 	Updated      int64              `bson:"updated"`
-	BuyAmounts   map[string]float64 `bson:"buy"`
-	SellAmounts  map[string]float64 `bson:"sell"`
+	BuyAmounts   map[string]float64 `bson:"buyAmounts"`
+	SellAmounts  map[string]float64 `bson:"sellAmounts"`
 	BuyTriggers  map[string]float64 `bson:"buyTriggers"`
 	SellTriggers map[string]float64 `bson:"sellTriggers"`
 	Stocks       map[string]float64 `bson:"stocks"`
