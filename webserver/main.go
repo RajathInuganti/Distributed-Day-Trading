@@ -37,8 +37,10 @@ func (handler commandHandler) ServeHTTP(writer http.ResponseWriter, request *htt
 
 	for {
 		if _, ok := (*handler.responses)[correlationID]; ok {
-			writer.Write((*handler.responses)[correlationID])
-
+			_, err := writer.Write((*handler.responses)[correlationID])
+			if err != nil {
+				log.Printf("Failed to write response for message: %s", err)
+			}
 			return
 		}
 	}
