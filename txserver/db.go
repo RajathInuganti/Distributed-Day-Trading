@@ -33,7 +33,7 @@ func updateUserAccount(ctx *context.Context, username string, update primitive.M
 func find_account(ctx *context.Context, username string) (*UserAccount, error) {
 	var account UserAccount
 
-	if parseErrors.stockSymbolEmpty || parseErrors.usernameEmpty || parseErrors.AmountNotConvertibleToFloat {
+	if parseErrors.usernameEmpty {
 		return &account, errors.New("insufficient information")
 	}
 
