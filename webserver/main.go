@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 
 	"github.com/streadway/amqp"
 )
@@ -13,6 +14,7 @@ import (
 var txCount int
 
 type commandHandler struct {
+	lock      *sync.Mutex
 	queue     string
 	ch        *amqp.Channel
 	responses *map[string]chan []byte
@@ -34,8 +36,10 @@ func (handler *commandHandler) ServeHTTP(writer http.ResponseWriter, request *ht
 	txCount = txCount + 1
 	CorrelationId := strconv.Itoa(txCount)
 
-	channel := make(chan []byte)
+	channel := make(chan []byte, 1)
+	handler.lock.Lock()
 	(*handler.responses)[CorrelationId] = channel
+	handler.lock.Unlock()
 
 	Publish(handler.ch, handler.queue, command, CorrelationId)
 
@@ -45,7 +49,9 @@ func (handler *commandHandler) ServeHTTP(writer http.ResponseWriter, request *ht
 		log.Printf("Unable to write response: %s. Error: %s\n", string(response), err)
 	}
 
+	handler.lock.Lock()
 	delete(*handler.responses, CorrelationId)
+	handler.lock.Unlock()
 }
 
 func Publish(ch *amqp.Channel, queue string, command []byte, txNum string) {
@@ -63,7 +69,7 @@ func Publish(ch *amqp.Channel, queue string, command []byte, txNum string) {
 	failOnError("Failed to publish a message", err)
 }
 
-func startQueueService(ch *amqp.Channel, queue string, responses *map[string]chan []byte) {
+func startQueueService(ch *amqp.Channel, queue string, responses *map[string]chan []byte, lock *sync.Mutex) {
 
 	q, err := ch.QueueDeclare(
 		queue, // name
@@ -87,7 +93,9 @@ func startQueueService(ch *amqp.Channel, queue string, responses *map[string]cha
 	failOnError("Failed to register a consumer", err)
 
 	for message := range messages {
+		lock.Lock()
 		channel := (*responses)[message.CorrelationId]
+		lock.Unlock()
 		channel <- message.Body
 	}
 }
@@ -96,11 +104,12 @@ func main() {
 
 	containerID := os.Getenv("HOSTNAME")
 	responses := make(map[string]chan []byte)
+	var lock sync.Mutex
 
 	ch := setupChannel()
-	go startQueueService(ch, containerID, &responses)
+	go startQueueService(ch, containerID, &responses, &lock)
 
-	handler := commandHandler{responses: &responses, ch: ch, queue: containerID}
+	handler := commandHandler{responses: &responses, ch: ch, queue: containerID, lock: &lock}
 
 	http.Handle("/transaction", &handler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
