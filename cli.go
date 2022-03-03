@@ -162,6 +162,7 @@ func HandleResponse(cmd *Command, res *http.Response) error {
 
 		defer file.Close()
 
+		log.Printf("ResponseData\n\n\n%s\n\n\n", responseStruct.Data)
 		_, err = file.Write(responseStruct.Data)
 		if err != nil {
 			log.Printf("Error while writing response body to file: %s\n", err)

@@ -559,7 +559,7 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 	}
 
 	xmlEncoding = append(xmlEncoding, []byte("</Log>\n")...)
-	log.Println("\n", string(xmlEncoding))
+	// log.Println("\n", string(xmlEncoding))
 
 	return xmlEncoding, nil
 }
@@ -598,6 +598,7 @@ func handle(ctx *context.Context, data []byte) *Response {
 	}
 
 	response.Data = responseData
+	log.Printf("created ResponseData: %s", string(response.Data))
 	return response
 }
 
