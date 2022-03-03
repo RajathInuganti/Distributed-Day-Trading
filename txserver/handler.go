@@ -65,6 +65,7 @@ func add(ctx *context.Context, command *Command) ([]byte, error) {
 
 	account.Balance += command.Amount
 
+	log.Printf("Adding %f to %s", command.Amount, command.Username)
 	update := bson.M{"$set": bson.M{"balance": account.Balance}}
 
 	err = updateUserAccount(ctx, account.Username, update)
