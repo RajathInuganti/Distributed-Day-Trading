@@ -65,7 +65,6 @@ func add(ctx *context.Context, command *Command) ([]byte, error) {
 
 	account.Balance += command.Amount
 
-	log.Printf("Adding %f to %s", command.Amount, command.Username)
 	update := bson.M{"$set": bson.M{"balance": account.Balance}}
 
 	err = updateUserAccount(ctx, account.Username, update)
@@ -73,7 +72,7 @@ func add(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
+	go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 	return []byte("successfully added funds to user account"), nil
 }
 
@@ -110,7 +109,7 @@ func commit_buy(ctx *context.Context, command *Command) ([]byte, error) {
 			return []byte{}, err
 		}
 
-		logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
+		go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 		return []byte("successfully committed the most recent buy"), nil
 
 	}
@@ -135,7 +134,7 @@ func cancel_buy(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
+	go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 
 	return []byte("Successfully cancelled the recent BUY"), nil
 }
@@ -177,7 +176,7 @@ func commit_sell(ctx *context.Context, command *Command) ([]byte, error) {
 			return []byte{}, err
 		}
 
-		logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
+		go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 
 		return []byte("successfully committed the most recent sell"), nil
 
@@ -202,7 +201,7 @@ func cancel_sell(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
+	go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 	return []byte("Successfully cancelled the recent SELL"), nil
 }
 
@@ -230,7 +229,7 @@ func buy(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
+	go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 	return []byte("buy command successful"), nil
 
 }
@@ -253,7 +252,7 @@ func sell(ctx *context.Context, command *Command) ([]byte, error) {
 			return []byte{}, err
 		}
 
-		logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
+		go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 		return []byte("sell command successful"), nil
 	}
 	return nil, errors.New("sell failed - insufficient amount of selected stock")
@@ -379,8 +378,6 @@ func set_sell_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 	}
 	account.SellTriggers[command.Stock] = command.Amount
 
-	// check if user has set multiple price triggers for same stock
-
 	if account.Stocks[command.Stock] >= command.Amount {
 		update := bson.M{
 			"$set": bson.M{
@@ -412,7 +409,7 @@ func quote(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	logQuoteServerEvent(ctx, getHostname(), cryptoKey, timestamp, price, command)
+	go logQuoteServerEvent(ctx, getHostname(), cryptoKey, timestamp, price, command)
 
 	responseString := fmt.Sprintf("%s: %f", command.Stock, price)
 	return []byte(responseString), nil
@@ -449,7 +446,7 @@ func cancel_set_buy(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	logAccountTransactionEvent(ctx, getHostname(), "ADD", command)
+	go logAccountTransactionEvent(ctx, getHostname(), "ADD", command)
 	return []byte("Successfully cancelled the SET_BUY_AMOUNT"), nil
 }
 
@@ -484,12 +481,12 @@ func cancel_set_sell(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	logAccountTransactionEvent(ctx, getHostname(), "ADD", command)
+	go logAccountTransactionEvent(ctx, getHostname(), "ADD", command)
 	return []byte("Successfully cancelled the SET_SELL_AMOUNT"), nil
 }
 
 func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
-	log.Printf("display_summary ran")
+
 	if command.Username == "" {
 		return nil, errors.New("username is required for DISPLAY_SUMMARY")
 	}
@@ -508,7 +505,7 @@ func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
 }
 
 func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
-	log.Printf("dumplog ran")
+
 	eventCollection := client.Database("test").Collection("events")
 
 	// fetch results from mongo
@@ -559,21 +556,18 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 	}
 
 	xmlEncoding = append(xmlEncoding, []byte("</Log>\n")...)
-	// log.Println("\n", string(xmlEncoding))
 
 	return xmlEncoding, nil
 }
 
 func handle(ctx *context.Context, data []byte) *Response {
 	requestDataStruct := &requestData{}
-	log.Printf("data")
+
 	err := json.Unmarshal(data, requestDataStruct)
 	if err != nil {
 		log.Printf("Failed to unmarshal message: %s, error: %s", string(data), err.Error())
 		return &Response{Data: []byte{}, Error: "Invalid data sent"}
 	}
-
-	log.Printf("Received message: %+v", requestDataStruct)
 
 	command := fromRequestDataToCommand(requestDataStruct)
 
@@ -587,18 +581,18 @@ func handle(ctx *context.Context, data []byte) *Response {
 		return response
 	}
 
-	logUserCommandEvent(ctx, getHostname(), command)
+	go logUserCommandEvent(ctx, getHostname(), command)
 
 	responseData, err := handlerMap[command.Command](ctx, command)
 	if err != nil {
 		log.Printf("Error handling command %+v, error: %s", command, err)
 		response.Error = err.Error()
-		logErrorEvent(ctx, getHostname(), err.Error(), command)
+		go logErrorEvent(ctx, getHostname(), err.Error(), command)
 		return response
 	}
 
 	response.Data = responseData
-	log.Printf("created ResponseData: %s", string(response.Data))
+
 	return response
 }
 

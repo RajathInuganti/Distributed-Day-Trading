@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"sync"
 
 	"github.com/streadway/amqp"
 )
@@ -14,13 +13,12 @@ import (
 var txCount int
 
 type commandHandler struct {
-	lock      *sync.Mutex
 	queue     string
 	ch        *amqp.Channel
 	responses *map[string]chan []byte
 }
 
-func (handler *commandHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+func (handler commandHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	var body Command
 	if request.Method != "POST" {
@@ -37,21 +35,15 @@ func (handler *commandHandler) ServeHTTP(writer http.ResponseWriter, request *ht
 	CorrelationId := strconv.Itoa(txCount)
 
 	channel := make(chan []byte, 1)
-	handler.lock.Lock()
 	(*handler.responses)[CorrelationId] = channel
-	handler.lock.Unlock()
 
 	Publish(handler.ch, handler.queue, command, CorrelationId)
 
 	response := <-channel
 	_, err = writer.Write(response)
-	if err != nil {
-		log.Printf("Unable to write response: %s. Error: %s\n", string(response), err)
-	}
+	failOnError("Unable to write response", err)
 
-	handler.lock.Lock()
 	delete(*handler.responses, CorrelationId)
-	handler.lock.Unlock()
 }
 
 func Publish(ch *amqp.Channel, queue string, command []byte, txNum string) {
@@ -69,7 +61,7 @@ func Publish(ch *amqp.Channel, queue string, command []byte, txNum string) {
 	failOnError("Failed to publish a message", err)
 }
 
-func startQueueService(ch *amqp.Channel, queue string, responses *map[string]chan []byte, lock *sync.Mutex) {
+func startQueueService(ch *amqp.Channel, queue string, responses *map[string]chan []byte) {
 
 	q, err := ch.QueueDeclare(
 		queue, // name
@@ -93,9 +85,7 @@ func startQueueService(ch *amqp.Channel, queue string, responses *map[string]cha
 	failOnError("Failed to register a consumer", err)
 
 	for message := range messages {
-		lock.Lock()
 		channel := (*responses)[message.CorrelationId]
-		lock.Unlock()
 		channel <- message.Body
 	}
 }
@@ -104,14 +94,13 @@ func main() {
 
 	containerID := os.Getenv("HOSTNAME")
 	responses := make(map[string]chan []byte)
-	var lock sync.Mutex
 
 	ch := setupChannel()
-	go startQueueService(ch, containerID, &responses, &lock)
+	go startQueueService(ch, containerID, &responses)
 
-	handler := commandHandler{responses: &responses, ch: ch, queue: containerID, lock: &lock}
+	handler := commandHandler{responses: &responses, ch: ch, queue: containerID}
 
-	http.Handle("/transaction", &handler)
+	http.Handle("/transaction", handler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 
 }

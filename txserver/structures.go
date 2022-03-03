@@ -40,7 +40,6 @@ func fromRequestDataToCommand(r *requestData) *Command {
 
 	amount, err := strconv.ParseFloat(val, 64)
 	if err != nil {
-		// log.Printf("Error converting requestDataAmount: %s, TrimmedData: %s, parsedAmount: %f, error: %s", r.Amount, val, amount, err)
 		amount = 0
 	}
 	return &Command{
@@ -101,8 +100,6 @@ type Event struct {
 // UnmarshalBSONValue is an implementation that helps in decoding MongoDB bson response to golang struct
 func (e *Event) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
 	var rawData bson.Raw
-
-	log.Printf("Event.UnmarshalBSONValue: t: %+v, data: %s", t, string(data))
 
 	err := bson.Unmarshal(data, &rawData)
 	if err != nil {
