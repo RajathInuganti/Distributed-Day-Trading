@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"strconv"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
@@ -18,12 +19,11 @@ const (
 )
 
 type requestData struct {
-	Command           string `json:"Command"`
-	Username          string `json:"Username"`
-	Amount            string `json:"Amount"`
-	Stock             string `json:"Stock"`
-	Filename          string `json:"Filename"`
-	TransactionNumber int64  `json:"transactionNumber"`
+	Command  string `json:"Command"`
+	Username string `json:"Username"`
+	Amount   string `json:"Amount"`
+	Stock    string `json:"Stock"`
+	Filename string `json:"Filename"`
 }
 
 type Command struct {
@@ -36,8 +36,11 @@ type Command struct {
 }
 
 func fromRequestDataToCommand(r *requestData) *Command {
-	amount, err := strconv.ParseFloat(r.Amount, 64)
+	val := strings.TrimSuffix(r.Amount, "\r")
+
+	amount, err := strconv.ParseFloat(val, 64)
 	if err != nil {
+		// log.Printf("Error converting requestDataAmount: %s, TrimmedData: %s, parsedAmount: %f, error: %s", r.Amount, val, amount, err)
 		amount = 0
 	}
 	return &Command{
@@ -99,6 +102,8 @@ type Event struct {
 func (e *Event) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
 	var rawData bson.Raw
 
+	log.Printf("Event.UnmarshalBSONValue: t: %+v, data: %s", t, string(data))
+
 	err := bson.Unmarshal(data, &rawData)
 	if err != nil {
 		log.Printf("Error unmarshalling bytes to type bson.RAW: %s, error: %s", string(data), err)
@@ -113,22 +118,24 @@ func (e *Event) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
 	switch e.EventType {
 	case EventUserCommand:
 		e.EventType = EventUserCommand
-		e.Data = UserCommand{}
+		e.Data = &UserCommand{}
 	case EventQuoteServer:
 		e.EventType = EventQuoteServer
-		e.Data = QuoteServer{}
+		e.Data = &QuoteServer{}
 	case EventAccountTransaction:
 		e.EventType = EventAccountTransaction
-		e.Data = AccountTransaction{}
+		e.Data = &AccountTransaction{}
 	case EventSystem:
 		e.EventType = EventSystem
-		e.Data = SystemEvent{}
+		e.Data = &SystemEvent{}
 	case EventError:
 		e.EventType = EventError
-		e.Data = ErrorEvent{}
+		e.Data = &ErrorEvent{}
 	case EventDebug:
 		e.EventType = EventDebug
-		e.Data = DebugEvent{}
+		e.Data = &DebugEvent{}
+	default:
+		log.Printf("Unknown eventType: %s", e.EventType)
 	}
 
 	err = rawData.Lookup("data").Unmarshal(e.Data)

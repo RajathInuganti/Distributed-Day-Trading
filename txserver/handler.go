@@ -65,6 +65,7 @@ func add(ctx *context.Context, command *Command) ([]byte, error) {
 
 	account.Balance += command.Amount
 
+	log.Printf("Adding %f to %s", command.Amount, command.Username)
 	update := bson.M{"$set": bson.M{"balance": account.Balance}}
 
 	err = updateUserAccount(ctx, account.Username, update)
@@ -508,7 +509,7 @@ func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
 
 func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 	log.Printf("dumplog ran")
-	eventCollection := client.Database("test").Collection("Events")
+	eventCollection := client.Database("test").Collection("events")
 
 	// fetch results from mongo
 	var cursor *mongo.Cursor
@@ -558,18 +559,21 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 	}
 
 	xmlEncoding = append(xmlEncoding, []byte("</Log>\n")...)
-	log.Println("\n", string(xmlEncoding))
+	// log.Println("\n", string(xmlEncoding))
 
 	return xmlEncoding, nil
 }
 
 func handle(ctx *context.Context, data []byte) *Response {
 	requestDataStruct := &requestData{}
+	log.Printf("data")
 	err := json.Unmarshal(data, requestDataStruct)
 	if err != nil {
 		log.Printf("Failed to unmarshal message: %s, error: %s", string(data), err.Error())
 		return &Response{Data: []byte{}, Error: "Invalid data sent"}
 	}
+
+	log.Printf("Received message: %+v", requestDataStruct)
 
 	command := fromRequestDataToCommand(requestDataStruct)
 
@@ -594,6 +598,7 @@ func handle(ctx *context.Context, data []byte) *Response {
 	}
 
 	response.Data = responseData
+	log.Printf("created ResponseData: %s", string(response.Data))
 	return response
 }
 

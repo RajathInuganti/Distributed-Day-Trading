@@ -155,11 +155,23 @@ func HandleResponse(cmd *Command, res *http.Response) error {
 	}
 
 	if cmd.Command == "DUMPLOG" {
-		err = ioutil.WriteFile(cmd.Filename, responseStruct.Data, 0444)
+		file, err := os.Create(cmd.Filename)
+		if err != nil {
+			log.Printf("Error while creating file: %s\n", err)
+		}
+
+		log.Printf("ResponseData\n\n\n%s\n\n\n", responseStruct.Data)
+		_, err = file.Write(responseStruct.Data)
 		if err != nil {
 			log.Printf("Error while writing response body to file: %s\n", err)
 			return err
 		}
+
+		err = file.Close()
+		if err != nil {
+			log.Printf("Error while closing file: %s\n", err)
+		}
+
 		fmt.Printf("Contents successfully written to %s\n", cmd.Filename)
 		return nil
 	}
