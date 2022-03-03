@@ -485,7 +485,7 @@ func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
 
 func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 	log.Printf("dumplog ran")
-	eventCollection := client.Database("test").Collection("Events")
+	eventCollection := client.Database("test").Collection("events")
 
 	// fetch results from mongo
 	var cursor *mongo.Cursor
@@ -542,11 +542,14 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 
 func handle(ctx *context.Context, data []byte) *Response {
 	requestDataStruct := &requestData{}
+	log.Printf("data")
 	err := json.Unmarshal(data, requestDataStruct)
 	if err != nil {
 		log.Printf("Failed to unmarshal message: %s, error: %s", string(data), err.Error())
 		return &Response{Data: []byte{}, Error: "Invalid data sent"}
 	}
+
+	log.Printf("Received message: %+v", requestDataStruct)
 
 	command := fromRequestDataToCommand(requestDataStruct)
 

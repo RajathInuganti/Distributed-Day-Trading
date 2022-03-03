@@ -1,2 +1,2 @@
-[1] ADD,oY01WVirLr,100
+[1] ADD,oY01WVirLr,"a"
 [100] DUMPLOG,./testLOG
