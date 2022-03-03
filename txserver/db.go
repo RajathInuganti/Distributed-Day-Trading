@@ -52,9 +52,12 @@ func find_account(ctx *context.Context, username string) (*UserAccount, error) {
 }
 
 func CreateUserAccount(ctx *context.Context, username string) (*UserAccount, error) {
+
+	var balance float64 = 0
+
 	account := &UserAccount{
 		Username:     username,
-		Balance:      0,
+		Balance:      balance,
 		Created:      time.Now().Unix(),
 		Updated:      time.Now().Unix(),
 		BuyAmounts:   map[string]float64{},

@@ -156,6 +156,10 @@ func commit_sell(ctx *context.Context, command *Command) ([]byte, error) {
 		account.Balance += stock_amount
 		account.Stocks[stock] -= stock_amount
 
+		if account.Stocks[stock] == 0 {
+			delete(account.Stocks, stock)
+		}
+
 		account.RecentSell.Amount = 0
 		account.RecentSell.Stock = ""
 		account.RecentSell.Timestamp = 0
@@ -178,7 +182,7 @@ func commit_sell(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte("successfully committed the most recent sell"), nil
 
 	}
-	return nil, errors.New("commit sell executed after 60 seconds - failed")
+	return nil, errors.New("commit sell executed after 60 seconds - failed or prior sell not executed")
 }
 
 func cancel_sell(ctx *context.Context, command *Command) ([]byte, error) {
@@ -262,9 +266,12 @@ func set_buy_amount(ctx *context.Context, command *Command) ([]byte, error) {
 		return nil, err
 	}
 
-	if account.BuyAmounts[command.Stock] > 0 {
-		account.Balance = account.Balance + account.BuyAmounts[command.Stock]
-		account.BuyAmounts[command.Stock] = 0
+	_, found := account.BuyAmounts[command.Stock]
+	if found {
+		if account.BuyAmounts[command.Stock] > 0 {
+			account.Balance = account.Balance + account.BuyAmounts[command.Stock]
+			account.BuyAmounts[command.Stock] = 0
+		}
 	}
 
 	if account.Balance >= command.Amount {
@@ -272,7 +279,7 @@ func set_buy_amount(ctx *context.Context, command *Command) ([]byte, error) {
 		account.BuyAmounts[command.Stock] = command.Amount
 
 		update := bson.M{"$set": bson.M{
-			"balance":    account.RecentSell,
+			"balance":    account.Balance,
 			"buyAmounts": account.BuyAmounts,
 		},
 		}
@@ -281,6 +288,8 @@ func set_buy_amount(ctx *context.Context, command *Command) ([]byte, error) {
 		if err != nil {
 			return []byte{}, err
 		}
+
+		return []byte("successfully set aside buy amount"), nil
 	}
 
 	return nil, errors.New("not enough account balance")
@@ -326,9 +335,12 @@ func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
 		return nil, err
 	}
 
-	if account.SellAmounts[command.Stock] > 0 {
-		account.Stocks[command.Stock] = account.Stocks[command.Stock] + account.SellAmounts[command.Stock]
-		account.SellAmounts[command.Stock] = 0
+	_, found := account.SellAmounts[command.Stock]
+	if found {
+		if account.SellAmounts[command.Stock] > 0 {
+			account.Stocks[command.Stock] = account.Stocks[command.Stock] + account.SellAmounts[command.Stock]
+			account.SellAmounts[command.Stock] = 0
+		}
 	}
 
 	if account.Stocks[command.Stock] >= command.Amount {
@@ -345,6 +357,8 @@ func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
 		if err != nil {
 			return []byte{}, err
 		}
+
+		return []byte("successfully set aside sell amount"), nil
 	}
 
 	return nil, errors.New("not enough stock balance")
@@ -414,6 +428,11 @@ func cancel_set_buy(ctx *context.Context, command *Command) ([]byte, error) {
 		return nil, err
 	}
 
+	_, found := account.BuyAmounts[command.Stock]
+	if !found {
+		return nil, errors.New("no previous buy amount set")
+	}
+
 	account.Balance += account.BuyAmounts[command.Stock]
 	command.Amount = account.BuyAmounts[command.Stock]
 	delete(account.BuyAmounts, command.Stock)
@@ -444,14 +463,19 @@ func cancel_set_sell(ctx *context.Context, command *Command) ([]byte, error) {
 		return nil, err
 	}
 
-	account.Balance += account.SellAmounts[command.Stock]
+	_, found := account.SellAmounts[command.Stock]
+	if !found {
+		return nil, errors.New("no previous sell amount set")
+	}
+
+	account.Stocks[command.Stock] += account.SellAmounts[command.Stock]
 	command.Amount = account.SellAmounts[command.Stock]
 	delete(account.SellAmounts, command.Stock)
 
 	update := bson.M{
 		"$set": bson.M{
-			"balance":     account.Balance,
 			"sellAmounts": account.SellAmounts,
+			"stocks":      account.Stocks,
 		},
 	}
 
