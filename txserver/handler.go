@@ -645,7 +645,10 @@ func FakeSELLTrigger(ctx *context.Context, command *Command) ([]byte, error) {
 			"transactions": account.Transactions,
 		}}
 
-	updateUserAccount(ctx, account.Username, update)
+	err = updateUserAccount(ctx, account.Username, update)
+	if err != nil {
+		return []byte{}, err
+	}
 
 	go logAccountTransactionEvent(ctx, getHostname(), "add", command)
 	go logSystemEvent(ctx, getHostname(), command)
@@ -687,7 +690,10 @@ func FakeBuyTrigger(ctx *context.Context, command *Command) ([]byte, error) {
 			"transactions": account.Transactions,
 		}}
 
-	updateUserAccount(ctx, account.Username, update)
+	err = updateUserAccount(ctx, account.Username, update)
+	if err != nil {
+		return []byte{}, err
+	}
 
 	go logAccountTransactionEvent(ctx, getHostname(), "remove", command)
 	go logSystemEvent(ctx, getHostname(), command)
