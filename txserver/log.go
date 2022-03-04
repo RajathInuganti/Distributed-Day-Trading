@@ -8,7 +8,7 @@ import (
 
 func logUserCommandEvent(ctx *context.Context, server string, command *Command) {
 	data := &UserCommand{
-		Timestamp:      time.Now().Unix(),
+		Timestamp:      time.Now().Unix() * 1000,
 		Server:         server,
 		TransactionNum: command.TransactionNumber,
 		Command:        command.Command,
@@ -23,7 +23,7 @@ func logUserCommandEvent(ctx *context.Context, server string, command *Command) 
 
 func logQuoteServerEvent(ctx *context.Context, server, cryptokey string, quoteServerTime int64, price float64, command *Command) {
 	data := &QuoteServer{
-		Timestamp:       time.Now().Unix(),
+		Timestamp:       time.Now().Unix() * 1000,
 		Server:          server,
 		TransactionNum:  command.TransactionNumber,
 		StockSymbol:     command.Stock,
@@ -38,7 +38,7 @@ func logQuoteServerEvent(ctx *context.Context, server, cryptokey string, quoteSe
 
 func logAccountTransactionEvent(ctx *context.Context, server, action string, command *Command) {
 	data := &AccountTransaction{
-		Timestamp:      time.Now().Unix(),
+		Timestamp:      time.Now().Unix() * 1000,
 		Server:         server,
 		TransactionNum: command.TransactionNumber,
 		Action:         action,
@@ -51,7 +51,7 @@ func logAccountTransactionEvent(ctx *context.Context, server, action string, com
 
 func logSystemEvent(ctx *context.Context, server string, command *Command) {
 	data := &SystemEvent{
-		Timestamp:      time.Now().Unix(),
+		Timestamp:      time.Now().Unix() * 1000,
 		Server:         server,
 		TransactionNum: command.TransactionNumber,
 		Command:        command.Command,
@@ -66,7 +66,7 @@ func logSystemEvent(ctx *context.Context, server string, command *Command) {
 
 func logErrorEvent(ctx *context.Context, server, errorMsg string, command *Command) {
 	data := &ErrorEvent{
-		Timestamp:      time.Now().Unix(),
+		Timestamp:      time.Now().Unix() * 1000,
 		Server:         server,
 		TransactionNum: command.TransactionNumber,
 		Command:        command.Command,
@@ -82,7 +82,7 @@ func logErrorEvent(ctx *context.Context, server, errorMsg string, command *Comma
 
 func logDebugEvent(ctx *context.Context, server, debugMsg string, command *Command) {
 	data := &DebugEvent{
-		Timestamp:      time.Now().Unix(),
+		Timestamp:      time.Now().Unix() * 1000,
 		Server:         server,
 		TransactionNum: command.TransactionNumber,
 		Command:        command.Command,

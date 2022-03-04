@@ -522,7 +522,7 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 	// turn results into xml (bytes form)
 	defer cursor.Close(*ctx)
 	xmlEncoding := []byte(xml.Header)
-	xmlEncoding = append(xmlEncoding, []byte("<Log>\n")...)
+	xmlEncoding = append(xmlEncoding, []byte("<log>\n")...)
 	for cursor.Next(*ctx) {
 		event := &Event{}
 		err := cursor.Decode(event)
@@ -546,7 +546,7 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 		panic(err)
 	}
 
-	xmlEncoding = append(xmlEncoding, []byte("</Log>\n")...)
+	xmlEncoding = append(xmlEncoding, []byte("</log>\n")...)
 
 	return xmlEncoding, nil
 }
