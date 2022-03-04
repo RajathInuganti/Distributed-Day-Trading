@@ -155,9 +155,10 @@ func HandleResponse(cmd *Command, res *http.Response) error {
 	}
 
 	if cmd.Command == "DUMPLOG" {
-		file, err := os.Create(cmd.Filename)
+		file, err := os.Create("logfile.xml")
 		if err != nil {
-			log.Printf("Error while creating file: %s\n", err)
+			log.Printf("error while creating file: %s\n", err)
+			return err
 		}
 
 		log.Printf("ResponseData\n\n\n%s\n\n\n", responseStruct.Data)

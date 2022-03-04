@@ -33,9 +33,9 @@ var handlerMap = map[string]func(*context.Context, *Command) ([]byte, error){
 	"BUY":              buy,
 	"SELL":             sell,
 	"SET_BUY_AMOUNT":   set_buy_amount,
-	"SET_BUY_TRIGGER":  set_buy_trigger,
+	"SET_BUY_TRIGGER":  FakeBuyTrigger,
 	"SET_SELL_AMOUNT":  set_sell_amount,
-	"SET_SELL_TRIGGER": set_sell_trigger,
+	"SET_SELL_TRIGGER": FakeSELLTrigger,
 	"QUOTE":            quote,
 	"CANCEL_SET_BUY":   cancel_set_buy,
 	"CANCEL_SET_SELL":  cancel_set_sell,
@@ -72,7 +72,7 @@ func add(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
+	go logAccountTransactionEvent(ctx, getHostname(), "add", command)
 	return []byte("successfully added funds to user account"), nil
 }
 
@@ -109,7 +109,7 @@ func commit_buy(ctx *context.Context, command *Command) ([]byte, error) {
 			return []byte{}, err
 		}
 
-		go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
+		go logAccountTransactionEvent(ctx, getHostname(), "remove", command)
 		return []byte("successfully committed the most recent buy"), nil
 
 	}
@@ -133,8 +133,6 @@ func cancel_buy(ctx *context.Context, command *Command) ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
-
-	go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 
 	return []byte("Successfully cancelled the recent BUY"), nil
 }
@@ -176,7 +174,7 @@ func commit_sell(ctx *context.Context, command *Command) ([]byte, error) {
 			return []byte{}, err
 		}
 
-		go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
+		go logAccountTransactionEvent(ctx, getHostname(), "add", command)
 
 		return []byte("successfully committed the most recent sell"), nil
 
@@ -201,7 +199,6 @@ func cancel_sell(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 	return []byte("Successfully cancelled the recent SELL"), nil
 }
 
@@ -229,7 +226,6 @@ func buy(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 	return []byte("buy command successful"), nil
 
 }
@@ -252,7 +248,6 @@ func sell(ctx *context.Context, command *Command) ([]byte, error) {
 			return []byte{}, err
 		}
 
-		go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 		return []byte("sell command successful"), nil
 	}
 	return nil, errors.New("sell failed - insufficient amount of selected stock")
@@ -402,16 +397,12 @@ func quote(ctx *context.Context, command *Command) ([]byte, error) {
 		return nil, errors.New("quote command requires stock and username")
 	}
 
-	result := get_quote(command.Stock, command.Username)
-
-	price, timestamp, cryptoKey, err := parseQuote(result)
-	if err != nil {
-		return []byte{}, err
-	}
+	price, timestamp, cryptoKey := getFakeQuote()
 
 	go logQuoteServerEvent(ctx, getHostname(), cryptoKey, timestamp, price, command)
 
-	responseString := fmt.Sprintf("%s: %f", command.Stock, price)
+	responseString := fmt.Sprintf("\nstock %s\n: price %.2f\n\n", command.Stock, price)
+	log.Printf("Quote handler response: %s\n", responseString)
 	return []byte(responseString), nil
 }
 
@@ -446,7 +437,7 @@ func cancel_set_buy(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	go logAccountTransactionEvent(ctx, getHostname(), "ADD", command)
+	go logAccountTransactionEvent(ctx, getHostname(), "add", command)
 	return []byte("Successfully cancelled the SET_BUY_AMOUNT"), nil
 }
 
@@ -481,7 +472,7 @@ func cancel_set_sell(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	go logAccountTransactionEvent(ctx, getHostname(), "ADD", command)
+	go logAccountTransactionEvent(ctx, getHostname(), "add", command)
 	return []byte("Successfully cancelled the SET_SELL_AMOUNT"), nil
 }
 
@@ -618,4 +609,88 @@ func getHostname() string {
 	}
 
 	return hostname
+}
+
+func FakeSELLTrigger(ctx *context.Context, command *Command) ([]byte, error) {
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	price, timestamp, cryptoKey := getFakeQuote()
+	go logQuoteServerEvent(ctx, getHostname(), cryptoKey, timestamp, price, command)
+
+	amount, found := account.SellAmounts[command.Stock]
+	if !found {
+		return []byte{}, fmt.Errorf("no sellAmount was set aside for stock %s", command.Stock)
+	}
+
+	account.Balance += amount
+	account.Transactions = append(account.Transactions, &Transaction{
+		ID:              command.TransactionNumber,
+		Timestamp:       time.Now().Unix(),
+		TransactionType: command.Command,
+		Stock:           command.Stock,
+		Amount:          amount,
+	})
+
+	delete(account.SellAmounts, command.Stock)
+	delete(account.Stocks, command.Stock)
+
+	update := bson.M{
+		"$set": bson.M{
+			"balance":      account.Balance,
+			"sellAmounts":  account.SellAmounts,
+			"stocks":       account.Stocks,
+			"transactions": account.Transactions,
+		}}
+
+	updateUserAccount(ctx, account.Username, update)
+
+	go logAccountTransactionEvent(ctx, getHostname(), "add", command)
+	go logSystemEvent(ctx, getHostname(), command)
+
+	return []byte("Successfully sold stock"), nil
+}
+
+func FakeBuyTrigger(ctx *context.Context, command *Command) ([]byte, error) {
+	account, err := find_account(ctx, command.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	price, timestamp, cryptoKey := getFakeQuote()
+	go logQuoteServerEvent(ctx, getHostname(), cryptoKey, timestamp, price, command)
+
+	amount, found := account.SellAmounts[command.Stock]
+	if !found {
+		return []byte{}, fmt.Errorf("no sellAmount was set aside for stock %s", command.Stock)
+	}
+
+	account.Balance -= amount
+	account.Transactions = append(account.Transactions, &Transaction{
+		ID:              command.TransactionNumber,
+		Timestamp:       time.Now().Unix(),
+		TransactionType: command.Command,
+		Stock:           command.Stock,
+		Amount:          amount,
+	})
+
+	delete(account.BuyAmounts, command.Stock)
+	account.Stocks[command.Stock] = price
+
+	update := bson.M{
+		"$set": bson.M{
+			"balance":      account.Balance,
+			"stocks":       account.Stocks,
+			"buyAmounts":   account.BuyAmounts,
+			"transactions": account.Transactions,
+		}}
+
+	updateUserAccount(ctx, account.Username, update)
+
+	go logAccountTransactionEvent(ctx, getHostname(), "remove", command)
+	go logSystemEvent(ctx, getHostname(), command)
+
+	return []byte("Successfully bought stock"), nil
 }
