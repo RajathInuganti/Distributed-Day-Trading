@@ -92,6 +92,7 @@ func (p *poll) sell_poll() []byte {
 }
 
 func trigger(context *context.Context, cmd *Command, adjustment bool, price float64, trigger string) []byte {
+
 	ctx = context
 	command = cmd
 	price_adjustment = adjustment
@@ -170,6 +171,7 @@ func trigger_polling(trigger string) {
 				if !(*run_polling) {
 					break
 				}
+
 				quote := get_quote(stock, os.Getenv("HOSTNAME"))
 				quoted_price, err := strconv.ParseFloat(quote[0], 64)
 				if err != nil {
@@ -201,6 +203,7 @@ func trigger_polling(trigger string) {
 }
 
 func update_account(ctx *context.Context, trigger string, stock string, usernames []interface{}) {
+
 	for index := range usernames {
 		username := usernames[index].(string)
 		var update primitive.M
