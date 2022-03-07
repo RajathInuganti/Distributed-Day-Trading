@@ -43,9 +43,9 @@ func float64Comparator(a, b interface{}) int {
 
 	switch {
 	case c1 > c2:
-		return 1
-	case c1 < c2:
 		return -1
+	case c1 < c2:
+		return 1
 	default:
 		return 0
 	}
