@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"sync"
 
 	"github.com/emirpasic/gods/maps/treemap"
 	"github.com/emirpasic/gods/sets/hashset"
@@ -28,14 +27,16 @@ Buy & Sell lists are in the form:
 */
 
 var (
-	poller    poll
-	buy_lock  sync.Mutex
-	sell_lock sync.Mutex
-	buy_list  map[string]*treemap.Map
-	sell_list map[string]*treemap.Map
+	poller           = new(poll)
+	ctx              *context.Context
+	command          *Command
+	price_adjustment bool
+	previous_price   float64
+	buy_list         map[string]*treemap.Map
+	sell_list        map[string]*treemap.Map
 )
 
-func float32Comparator(a, b interface{}) int {
+func float64Comparator(a, b interface{}) int {
 
 	c1 := a.(float64)
 	c2 := b.(float64)
@@ -52,66 +53,151 @@ func float32Comparator(a, b interface{}) int {
 }
 
 type poll struct {
+	run_buy_polling       bool
+	run_sell_polling      bool
 	buyPollingInProgress  bool
 	sellPollingInProgress bool
+	buy_updates           chan bool
+	sell_updates          chan bool
 }
 
-func (p *poll) buy_poll(ctx *context.Context, list *map[string]*treemap.Map, lock *sync.Mutex) []byte {
+func (p *poll) buy_poll() []byte {
 
 	if p.buyPollingInProgress {
+		poller.run_buy_polling = false
+		poller.buy_updates <- true
 		return []byte("Buy trigger polling initiated")
 	}
 
-	go polling_thread(ctx, list, lock, &p.buyPollingInProgress, "BUY")
 	p.buyPollingInProgress = true
+	poller.run_buy_polling = false
+	poller.buy_updates <- true
+	go trigger_polling("BUY")
 	return []byte("Buy trigger polling initiated")
 }
 
-func (p *poll) sell_poll(ctx *context.Context, list *map[string]*treemap.Map, lock *sync.Mutex) []byte {
+func (p *poll) sell_poll() []byte {
 
 	if p.sellPollingInProgress {
+		poller.run_sell_polling = false
+		poller.sell_updates <- true
 		return []byte("Sell trigger polling initiated")
 	}
 
-	go polling_thread(ctx, list, lock, &p.sellPollingInProgress, "SELL")
 	p.sellPollingInProgress = true
+	poller.run_sell_polling = false
+	poller.sell_updates <- true
+	go trigger_polling("SELL")
 	return []byte("Sell trigger polling initiated")
 }
 
-func polling_thread(ctx *context.Context, list *map[string]*treemap.Map, lock *sync.Mutex, pollingInProgress *bool, trigger string) {
+func trigger(context *context.Context, cmd *Command, adjustment bool, price float64, trigger string) []byte {
+	ctx = context
+	command = cmd
+	price_adjustment = adjustment
+	previous_price = price
 
-	for len(*list) != 0 {
-		for stock := range *list {
+	if trigger == "BUY" {
+		return poller.buy_poll()
+	}
 
-			quote := get_quote(stock, os.Getenv("HOSTNAME"))
-			quoted_price, err := strconv.ParseFloat(quote[0], 64)
-			if err != nil {
-				log.Println("error parsing string")
+	return poller.sell_poll()
+
+}
+
+func trigger_polling(trigger string) {
+
+	var run_polling *bool
+	var updates *chan bool
+	var list *map[string]*treemap.Map
+
+	if trigger == "BUY" {
+		list = &buy_list
+		updates = &poller.buy_updates
+		run_polling = &poller.run_buy_polling
+	} else {
+		list = &sell_list
+		updates = &poller.sell_updates
+		run_polling = &poller.run_sell_polling
+	}
+
+	for {
+		select {
+		case <-(*updates):
+			price_wait_list, found := (*list)[command.Stock]
+			if !found {
+				user_list := hashset.New()
+				price_wait_list := treemap.NewWith(float64Comparator)
+				user_list.Add(command.Username)
+				price_wait_list.Put(command.Amount, user_list)
+				(*list)[command.Stock] = price_wait_list
+
+				(*run_polling) = true
+				break
 			}
 
-			price_wait_list := (*list)[stock]
-			priceIterator := price_wait_list.Iterator()
+			if price_adjustment && previous_price != command.Amount {
+				Iprevious_price_user_list, _ := price_wait_list.Get(previous_price)
+				previous_price_user_list := Iprevious_price_user_list.(*hashset.Set)
+				previous_price_user_list.Remove(command.Username)
+				if previous_price_user_list.Empty() {
+					price_wait_list.Remove(previous_price)
+				}
+				(*list)[command.Stock] = price_wait_list
+			}
 
-			for priceIterator.Next() {
+			Iuser_list, found := price_wait_list.Get(command.Amount)
+			user_list := Iuser_list.(*hashset.Set)
+			if !found {
+				user_list := hashset.New()
+				user_list.Add(command.Username)
+				price_wait_list.Put(command.Amount, user_list)
+				(*list)[command.Stock] = price_wait_list
 
-				price := priceIterator.Key().(float64)
-				if price < quoted_price {
+				(*run_polling) = true
+				break
+			}
+
+			user_list.Add(command.Username)
+			price_wait_list.Put(command.Amount, user_list)
+			(*list)[command.Stock] = price_wait_list
+
+			(*run_polling) = true
+
+		default:
+			for stock := range *list {
+
+				if !(*run_polling) {
 					break
 				}
+				quote := get_quote(stock, os.Getenv("HOSTNAME"))
+				quoted_price, err := strconv.ParseFloat(quote[0], 64)
+				if err != nil {
+					log.Println("error parsing string")
+				}
 
-				Iuser_list, _ := price_wait_list.Get(price)
-				user_list := Iuser_list.(*hashset.Set)
-				usernames := user_list.Values()
-				go update_account(ctx, trigger, stock, usernames)
+				price_wait_list := (*list)[stock]
+				price_wait_list.Keys()
+				priceIterator := price_wait_list.Iterator()
 
-				lock.Lock()
-				price_wait_list.Remove(price)
-				(*list)[stock] = price_wait_list
-				lock.Unlock()
+				for priceIterator.Next() {
+
+					price := priceIterator.Key().(float64)
+					if price < quoted_price {
+						break
+					}
+
+					Iuser_list, _ := price_wait_list.Get(price)
+					user_list := Iuser_list.(*hashset.Set)
+					usernames := user_list.Values()
+					go update_account(ctx, trigger, stock, usernames)
+
+					price_wait_list.Remove(price)
+					(*list)[stock] = price_wait_list
+				}
 			}
 		}
 	}
-	*pollingInProgress = false
 }
 
 func update_account(ctx *context.Context, trigger string, stock string, usernames []interface{}) {
@@ -121,7 +207,7 @@ func update_account(ctx *context.Context, trigger string, stock string, username
 
 		account, err := find_account(ctx, username)
 		if err != nil {
-			log.Println("No account found")
+			log.Printf("No account found for: %s", username)
 		}
 
 		if trigger == "BUY" {
@@ -152,82 +238,7 @@ func update_account(ctx *context.Context, trigger string, stock string, username
 
 		err = updateUserAccount(ctx, username, update)
 		if err != nil {
-			log.Printf("Error updating account\n")
+			log.Printf("Error updating account")
 		}
 	}
-}
-
-func trigger(ctx *context.Context, command *Command, price_adjustment bool, previous_price float64, trigger string) []byte {
-
-	var lock *sync.Mutex
-	var list *map[string]*treemap.Map
-	var trigger_poll func(ctx *context.Context, list *map[string]*treemap.Map, lock *sync.Mutex) []byte
-
-	if trigger == "BUY" {
-		list = &buy_list
-		lock = &buy_lock
-		trigger_poll = poller.buy_poll
-	} else {
-		list = &sell_list
-		lock = &sell_lock
-		trigger_poll = poller.sell_poll
-	}
-
-	lock.Lock()
-	defer lock.Unlock()
-
-	if price_adjustment {
-		price_wait_list := (*list)[command.Stock]
-		Iuser_list, _ := price_wait_list.Get(previous_price)
-		user_list := Iuser_list.(*hashset.Set)
-		user_list.Remove(command.Username)
-		price_wait_list.Put(previous_price, user_list)
-		// check if price_wait_list is empty
-
-		Iuser_list, found := price_wait_list.Get(command.Amount)
-		if !found {
-			user_list := hashset.New()
-			user_list.Add(command.Username)
-			price_wait_list.Put(command.Amount, user_list)
-			(*list)[command.Stock] = price_wait_list
-
-			return trigger_poll(ctx, list, lock)
-		}
-
-		user_list = Iuser_list.(*hashset.Set)
-		user_list.Add(command.Username)
-		price_wait_list.Put(command.Amount, user_list)
-		(*list)[command.Stock] = price_wait_list
-
-		return trigger_poll(ctx, list, lock)
-	}
-
-	price_wait_list, found := (*list)[command.Stock]
-	if !found {
-		user_list := hashset.New()
-		price_wait_list := treemap.NewWith(float32Comparator)
-
-		user_list.Add(command.Username)
-		price_wait_list.Put(command.Amount, user_list)
-		(*list)[command.Stock] = price_wait_list
-
-		return trigger_poll(ctx, list, lock)
-	}
-
-	Iuser_list, found := price_wait_list.Get(command.Amount)
-	user_list := Iuser_list.(*hashset.Set)
-	if !found {
-		user_list := hashset.New()
-		user_list.Add(command.Username)
-		price_wait_list.Put(command.Amount, user_list)
-		(*list)[command.Stock] = price_wait_list
-
-		return trigger_poll(ctx, list, lock)
-	}
-
-	user_list.Add(command.Username)
-	price_wait_list.Put(command.Amount, user_list)
-	(*list)[command.Stock] = price_wait_list
-
-	return trigger_poll(ctx, list, lock)
 }

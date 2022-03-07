@@ -303,13 +303,14 @@ func set_buy_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 		return nil, err
 	}
 
-	price, found := account.BuyTriggers[command.Stock]
-	if found {
-		price_adjustment = true
-	}
-	account.BuyTriggers[command.Stock] = command.Amount
-
 	if account.BuyAmounts[command.Stock] >= command.Amount {
+
+		price, found := account.BuyTriggers[command.Stock]
+		if found {
+			price_adjustment = true
+		}
+
+		account.BuyTriggers[command.Stock] = command.Amount
 		update := bson.M{
 			"$set": bson.M{
 				"buyTriggers": account.BuyTriggers,
@@ -317,7 +318,7 @@ func set_buy_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 		}
 		err := updateUserAccount(ctx, command.Username, update)
 		if err != nil {
-			log.Printf("Error updating account\n")
+			log.Printf("Error updating account")
 		}
 
 		return trigger(ctx, command, price_adjustment, price, "BUY"), nil
@@ -372,13 +373,14 @@ func set_sell_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 		return nil, err
 	}
 
-	price, found := account.SellTriggers[command.Stock]
-	if found {
-		price_adjustment = true
-	}
-	account.SellTriggers[command.Stock] = command.Amount
-
 	if account.Stocks[command.Stock] >= command.Amount {
+
+		price, found := account.SellTriggers[command.Stock]
+		if found {
+			price_adjustment = true
+		}
+
+		account.SellTriggers[command.Stock] = command.Amount
 		update := bson.M{
 			"$set": bson.M{
 				"sellTriggers": account.SellTriggers,
@@ -387,7 +389,7 @@ func set_sell_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 
 		err := updateUserAccount(ctx, command.Username, update)
 		if err != nil {
-			log.Printf("Error updating account\n")
+			log.Printf("Error updating account")
 		}
 
 		return trigger(ctx, command, price_adjustment, price, "SELL"), nil
@@ -577,7 +579,7 @@ func handle(ctx *context.Context, data []byte) *Response {
 	err = verifyAndParseRequestData(command)
 	if err != nil {
 		response.Error = err.Error()
-		logErrorEvent(ctx, getHostname(), err.Error(), command)
+		go logErrorEvent(ctx, getHostname(), err.Error(), command)
 		return response
 	}
 
