@@ -184,7 +184,6 @@ func trigger_polling(trigger string) {
 				for priceIterator.Next() {
 
 					price := priceIterator.Key().(float64)
-					log.Printf("polling price: %f", price)
 					if price < quoted_price {
 						break
 					}
