@@ -325,7 +325,7 @@ func set_buy_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 
 	}
 
-	return nil, errors.New("not enough amount for transaction")
+	return nil, errors.New("not enough buy amount for transaction")
 }
 
 func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
@@ -396,7 +396,7 @@ func set_sell_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 
 	}
 
-	return nil, errors.New("not enough stock for transaction")
+	return nil, errors.New("not enough sell amount stock for transaction")
 }
 
 func quote(ctx *context.Context, command *Command) ([]byte, error) {
