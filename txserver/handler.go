@@ -373,7 +373,7 @@ func set_sell_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 		return nil, err
 	}
 
-	if account.Stocks[command.Stock] >= command.Amount {
+	if account.SellAmounts[command.Stock] >= command.Amount {
 
 		price, found := account.SellTriggers[command.Stock]
 		if found {
