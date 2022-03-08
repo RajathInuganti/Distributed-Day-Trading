@@ -27,13 +27,13 @@ Buy & Sell lists are in the form:
 */
 
 var (
-	poller           = new(poll)
 	ctx              *context.Context
+	poller           = new(poll)
 	command          *Command
 	price_adjustment bool
 	previous_price   float64
-	buy_list         map[string]*treemap.Map
-	sell_list        map[string]*treemap.Map
+	buy_list         = make(map[string]*treemap.Map)
+	sell_list        = make(map[string]*treemap.Map)
 )
 
 func float64Comparator(a, b interface{}) int {
@@ -70,9 +70,9 @@ func (p *poll) buy_poll() []byte {
 	}
 
 	p.buyPollingInProgress = true
-	poller.run_buy_polling = false
-	poller.buy_updates <- true
+	poller.buy_updates = make(chan bool)
 	go trigger_polling("BUY")
+	poller.buy_updates <- true
 	return []byte("Buy trigger polling initiated")
 }
 
@@ -85,9 +85,9 @@ func (p *poll) sell_poll() []byte {
 	}
 
 	p.sellPollingInProgress = true
-	poller.run_sell_polling = false
-	poller.sell_updates <- true
+	poller.sell_updates = make(chan bool)
 	go trigger_polling("SELL")
+	poller.sell_updates <- true
 	return []byte("Sell trigger polling initiated")
 }
 
@@ -109,22 +109,22 @@ func trigger(context *context.Context, cmd *Command, adjustment bool, price floa
 func trigger_polling(trigger string) {
 
 	var run_polling *bool
-	var updates *chan bool
+	var updates chan bool
 	var list *map[string]*treemap.Map
 
 	if trigger == "BUY" {
 		list = &buy_list
-		updates = &poller.buy_updates
+		updates = poller.buy_updates
 		run_polling = &poller.run_buy_polling
 	} else {
 		list = &sell_list
-		updates = &poller.sell_updates
+		updates = poller.sell_updates
 		run_polling = &poller.run_sell_polling
 	}
 
 	for {
 		select {
-		case <-(*updates):
+		case <-updates:
 			price_wait_list, found := (*list)[command.Stock]
 			if !found {
 				user_list := hashset.New()
@@ -148,7 +148,6 @@ func trigger_polling(trigger string) {
 			}
 
 			Iuser_list, found := price_wait_list.Get(command.Amount)
-			user_list := Iuser_list.(*hashset.Set)
 			if !found {
 				user_list := hashset.New()
 				user_list.Add(command.Username)
@@ -159,6 +158,7 @@ func trigger_polling(trigger string) {
 				break
 			}
 
+			user_list := Iuser_list.(*hashset.Set)
 			user_list.Add(command.Username)
 			price_wait_list.Put(command.Amount, user_list)
 			(*list)[command.Stock] = price_wait_list
@@ -179,12 +179,12 @@ func trigger_polling(trigger string) {
 				}
 
 				price_wait_list := (*list)[stock]
-				price_wait_list.Keys()
 				priceIterator := price_wait_list.Iterator()
 
 				for priceIterator.Next() {
 
 					price := priceIterator.Key().(float64)
+					log.Printf("polling price: %f", price)
 					if price < quoted_price {
 						break
 					}
