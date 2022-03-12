@@ -62,6 +62,23 @@ services:
       WAIT_HOST_CONNECT_TIMEOUT: ${WAIT_HOST_CONNECT_TIMEOUT}
       WAIT_BEFORE_HOSTS: ${WAIT_BEFORE_HOSTS}
   
+  quoteserver:
+      build: quoteserver
+      container_name: quoteserver
+      restart: always
+      ports:
+       - 4444:4444
+      networks:
+       - txnetwork
+      command: sh -c "/wait && /src/main"
+      environment:
+      WAIT_HOSTS: ${WAIT_HOSTS}
+      WAIT_HOSTS_TIMEOUT: ${WAIT_HOSTS_TIMEOUT}
+      WAIT_SLEEP_INTERVAL: ${WAIT_SLEEP_INTERVAL}
+      WAIT_HOST_CONNECT_TIMEOUT: ${WAIT_HOST_CONNECT_TIMEOUT}
+      WAIT_BEFORE_HOSTS: ${WAIT_BEFORE_HOSTS}
+
+
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: rabbitmq

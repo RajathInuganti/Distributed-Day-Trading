@@ -40,7 +40,7 @@ func generateCryptoKey(n int) string {
 	return string(b)
 }
 
-func handle(conn net.Conn) {
+func sendQuote(conn net.Conn) {
 	price, timestamp, crypto := getFakeQuote()
 	responseString := fmt.Sprintf("%f,%d,%s", price, timestamp, crypto)
 
@@ -63,7 +63,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		go handle(conn)
+		go sendQuote(conn)
 	}
 
 }

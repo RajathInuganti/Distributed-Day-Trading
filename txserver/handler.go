@@ -397,7 +397,10 @@ func quote(ctx *context.Context, command *Command) ([]byte, error) {
 		return nil, errors.New("quote command requires stock and username")
 	}
 
-	price, timestamp, cryptoKey := getFakeQuote()
+	price, timestamp, cryptoKey, err := parseQuote(get_quote(command.Stock, command.Username))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get quote for %s, error: %s", command.Username, err.Error())
+	}
 
 	go logQuoteServerEvent(ctx, getHostname(), cryptoKey, timestamp, price, command)
 
