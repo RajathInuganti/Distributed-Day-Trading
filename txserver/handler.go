@@ -33,9 +33,9 @@ var handlerMap = map[string]func(*context.Context, *Command) ([]byte, error){
 	"BUY":              buy,
 	"SELL":             sell,
 	"SET_BUY_AMOUNT":   set_buy_amount,
-	"SET_BUY_TRIGGER":  FakeBuyTrigger,
+	"SET_BUY_TRIGGER":  set_buy_trigger,
 	"SET_SELL_AMOUNT":  set_sell_amount,
-	"SET_SELL_TRIGGER": FakeSELLTrigger,
+	"SET_SELL_TRIGGER": set_sell_trigger,
 	"QUOTE":            quote,
 	"CANCEL_SET_BUY":   cancel_set_buy,
 	"CANCEL_SET_SELL":  cancel_set_sell,
@@ -612,94 +612,4 @@ func getHostname() string {
 	}
 
 	return hostname
-}
-
-func FakeSELLTrigger(ctx *context.Context, command *Command) ([]byte, error) {
-	account, err := find_account(ctx, command.Username)
-	if err != nil {
-		return nil, err
-	}
-
-	price, timestamp, cryptoKey := getFakeQuote()
-	go logQuoteServerEvent(ctx, getHostname(), cryptoKey, timestamp, price, command)
-
-	amount, found := account.SellAmounts[command.Stock]
-	if !found {
-		return []byte{}, fmt.Errorf("no sellAmount was set aside for stock %s", command.Stock)
-	}
-
-	account.Balance += amount
-	account.Transactions = append(account.Transactions, &Transaction{
-		ID:              command.TransactionNumber,
-		Timestamp:       time.Now().Unix(),
-		TransactionType: command.Command,
-		Stock:           command.Stock,
-		Amount:          amount,
-	})
-
-	delete(account.SellAmounts, command.Stock)
-	delete(account.Stocks, command.Stock)
-
-	update := bson.M{
-		"$set": bson.M{
-			"balance":      account.Balance,
-			"sellAmounts":  account.SellAmounts,
-			"stocks":       account.Stocks,
-			"transactions": account.Transactions,
-		}}
-
-	err = updateUserAccount(ctx, account.Username, update)
-	if err != nil {
-		return []byte{}, err
-	}
-
-	go logAccountTransactionEvent(ctx, getHostname(), "add", command)
-	go logSystemEvent(ctx, getHostname(), command)
-
-	return []byte("Successfully sold stock"), nil
-}
-
-func FakeBuyTrigger(ctx *context.Context, command *Command) ([]byte, error) {
-	account, err := find_account(ctx, command.Username)
-	if err != nil {
-		return nil, err
-	}
-
-	price, timestamp, cryptoKey := getFakeQuote()
-	go logQuoteServerEvent(ctx, getHostname(), cryptoKey, timestamp, price, command)
-
-	amount, found := account.SellAmounts[command.Stock]
-	if !found {
-		return []byte{}, fmt.Errorf("no sellAmount was set aside for stock %s", command.Stock)
-	}
-
-	account.Balance -= amount
-	account.Transactions = append(account.Transactions, &Transaction{
-		ID:              command.TransactionNumber,
-		Timestamp:       time.Now().Unix(),
-		TransactionType: command.Command,
-		Stock:           command.Stock,
-		Amount:          amount,
-	})
-
-	delete(account.BuyAmounts, command.Stock)
-	account.Stocks[command.Stock] = price
-
-	update := bson.M{
-		"$set": bson.M{
-			"balance":      account.Balance,
-			"stocks":       account.Stocks,
-			"buyAmounts":   account.BuyAmounts,
-			"transactions": account.Transactions,
-		}}
-
-	err = updateUserAccount(ctx, account.Username, update)
-	if err != nil {
-		return []byte{}, err
-	}
-
-	go logAccountTransactionEvent(ctx, getHostname(), "remove", command)
-	go logSystemEvent(ctx, getHostname(), command)
-
-	return []byte("Successfully bought stock"), nil
 }
