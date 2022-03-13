@@ -83,7 +83,11 @@ func polling_thread(ctx *context.Context, list *map[string]*treemap.Map, lock *s
 	for len(*list) != 0 {
 		for stock := range *list {
 
-			quote := get_quote(stock, os.Getenv("HOSTNAME"))
+			quote, err := get_quote(stock, os.Getenv("HOSTNAME"))
+			for err != nil {
+				quote, err = get_quote(stock, os.Getenv("HOSTNAME"))
+			}
+
 			quoted_price, err := strconv.ParseFloat(quote[0], 64)
 			if err != nil {
 				log.Println("error parsing string")

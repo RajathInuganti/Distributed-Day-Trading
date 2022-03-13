@@ -397,7 +397,12 @@ func quote(ctx *context.Context, command *Command) ([]byte, error) {
 		return nil, errors.New("quote command requires stock and username")
 	}
 
-	price, timestamp, cryptoKey, err := parseQuote(get_quote(command.Stock, command.Username))
+	result, err := get_quote(command.Stock, command.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	price, timestamp, cryptoKey, err := parseQuote(result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get quote for %s, error: %s", command.Username, err.Error())
 	}

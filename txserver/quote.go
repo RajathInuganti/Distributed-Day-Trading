@@ -1,7 +1,7 @@
 package main
 
 import (
-	"io/ioutil"
+	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	CONN_URL = "192.168.4.2:4444"
+	CONN_URL = "quoteserver:4444"
 )
 
 func quote_server_connect() net.Conn {
@@ -23,8 +23,8 @@ func quote_server_connect() net.Conn {
 }
 
 func parseQuote(arr []string) (price float64, timestamp int64, crypto string, err error) {
-	crypto = arr[4]
-	timestamp32, err := strconv.Atoi(arr[3])
+	crypto = arr[2]
+	timestamp32, err := strconv.Atoi(arr[1])
 	if err != nil {
 		return 0, 0, "", err
 	}
@@ -40,7 +40,7 @@ func parseQuote(arr []string) (price float64, timestamp int64, crypto string, er
 }
 
 //Use for testing on UVic machine
-func get_quote(stock string, username string) []string {
+func get_quote(stock string, username string) ([]string, error) {
 
 	log.Printf("get_quote() ran\n")
 
@@ -53,16 +53,18 @@ func get_quote(stock string, username string) []string {
 
 	log.Printf("Connected to quote server\n")
 
-	_, err := conn.Write([]byte(stock + username + "\n"))
-	if err != nil {
-		return get_quote(stock, username)
+	_, err := conn.Write([]byte(fmt.Sprintf("%s,%s\n", stock, username)))
+	for err != nil {
+		_, err = conn.Write([]byte(fmt.Sprintf("%s,%s\n", stock, username)))
 	}
 
 	log.Printf("Sent request to quote Server\n")
 
-	result, err := ioutil.ReadAll(conn)
-	if err != nil || result == nil {
-		return get_quote(stock, username)
+	result := make([]byte, 1024)
+	_, err = conn.Read(result)
+	log.Printf("tried to read %s, error : %s\n", result, err)
+	if err != nil {
+		return nil, err
 	}
 
 	log.Printf("Got response from quote server : %s\n", string(result))
@@ -70,8 +72,9 @@ func get_quote(stock string, username string) []string {
 	err = conn.Close()
 	if err != nil {
 		log.Fatalf("Unable to close connection with UVic Quote server")
+		return nil, err
 	}
 
-	return strings.Split(string(result), ",")
+	return strings.Split(string(result), ","), nil
 
 }

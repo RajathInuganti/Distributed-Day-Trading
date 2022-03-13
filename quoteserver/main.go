@@ -55,7 +55,7 @@ func main() {
 		panic(err)
 	}
 
-	log.Println("Listening on localhost:2000")
+	log.Println("Listening on localhost:4444")
 
 	for {
 		conn, err := server.Accept()
