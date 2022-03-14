@@ -141,6 +141,7 @@ func trigger_polling(trigger string) {
 				Iprevious_price_user_list, _ := price_wait_list.Get(previous_price)
 				previous_price_user_list := Iprevious_price_user_list.(*hashset.Set)
 				previous_price_user_list.Remove(command.Username)
+				price_wait_list.Put(previous_price, previous_price_user_list)
 				if previous_price_user_list.Empty() {
 					price_wait_list.Remove(previous_price)
 				}
@@ -198,6 +199,10 @@ func trigger_polling(trigger string) {
 
 					price_wait_list.Remove(price)
 					(*list)[stock] = price_wait_list
+				}
+
+				if price_wait_list.Empty() {
+					delete(*list, stock)
 				}
 			}
 		}
