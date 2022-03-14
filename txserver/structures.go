@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/xml"
 	"log"
 	"strconv"
 	"strings"
@@ -146,72 +147,78 @@ func (e *Event) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
 
 // UserCommand: Any command issued by the user
 type UserCommand struct {
-	Timestamp      int64   `xml:"timestamp"`
-	Server         string  `xml:"server"`
-	TransactionNum int64   `xml:"transactionNum"`
-	Command        string  `xml:"command"`
-	Username       string  `xml:"username"`
-	StockSymbol    string  `xml:"stockSymbol"`
-	Filename       string  `xml:"filename"`
-	Funds          float64 `xml:"funds"`
+	XMLName        xml.Name `xml:"userCommand"`
+	Timestamp      int64    `xml:"timestamp"`
+	Server         string   `xml:"server"`
+	TransactionNum int64    `xml:"transactionNum"`
+	Command        string   `xml:"command"`
+	Username       string   `xml:"username"`
+	StockSymbol    string   `xml:"stockSymbol"`
+	Filename       string   `xml:"filename"`
+	Funds          float64  `xml:"funds"`
 }
 
 // QuoteServer: Any communication with the quoter server
 type QuoteServer struct {
-	Timestamp       int64   `xml:"timestamp"`
-	Server          string  `xml:"server"`
-	TransactionNum  int64   `xml:"transactionNum"`
-	Price           float64 `xml:"price"`
-	StockSymbol     string  `xml:"stockSymbol"`
-	Username        string  `xml:"username"`
-	QuoteServerTime int64   `xml:"quoteServerTime"`
-	Cryptokey       string  `xml:"cryptokey"`
+	XMLName         xml.Name `xml:"quoteServer"`
+	Timestamp       int64    `xml:"timestamp"`
+	Server          string   `xml:"server"`
+	TransactionNum  int64    `xml:"transactionNum"`
+	Price           float64  `xml:"price"`
+	StockSymbol     string   `xml:"stockSymbol"`
+	Username        string   `xml:"username"`
+	QuoteServerTime int64    `xml:"quoteServerTime"`
+	Cryptokey       string   `xml:"cryptokey"`
 }
 
 // AccountTransaction: any change in User's account
 type AccountTransaction struct {
-	Timestamp      int64   `xml:"timestamp"`
-	Server         string  `xml:"server"`
-	TransactionNum int64   `xml:"transactionNum"`
-	Action         string  `xml:"action"`
-	Username       string  `xml:"username"`
-	Funds          float64 `xml:"funds"`
+	XMLName        xml.Name `xml:"accountTransaction"`
+	Timestamp      int64    `xml:"timestamp"`
+	Server         string   `xml:"server"`
+	TransactionNum int64    `xml:"transactionNum"`
+	Action         string   `xml:"action"`
+	Username       string   `xml:"username"`
+	Funds          float64  `xml:"funds"`
 }
 
 // SystemEvent: Any event that is triggered by our system. For example, buying a stock because a trigger was set by the user.
 type SystemEvent struct {
-	Timestamp      int64   `xml:"timestamp"`
-	Server         string  `xml:"server"`
-	TransactionNum int64   `xml:"transactionNum"`
-	Command        string  `xml:"command"`
-	Username       string  `xml:"username"`
-	StockSymbol    string  `xml:"stockSymbol"`
-	Filename       string  `xml:"filename"`
-	Funds          float64 `xml:"funds"`
+	XMLName        xml.Name `xml:"systemEvent"`
+	Timestamp      int64    `xml:"timestamp"`
+	Server         string   `xml:"server"`
+	TransactionNum int64    `xml:"transactionNum"`
+	Command        string   `xml:"command"`
+	Username       string   `xml:"username"`
+	StockSymbol    string   `xml:"stockSymbol"`
+	Filename       string   `xml:"filename"`
+	Funds          float64  `xml:"funds"`
 }
 
 // ErrorEvent: Any error that occurs for a transaction with the quote server
 type ErrorEvent struct {
-	Timestamp      int64   `xml:"timestamp"`
-	Server         string  `xml:"server"`
-	TransactionNum int64   `xml:"transactionNum"`
-	Command        string  `xml:"command"`
-	Username       string  `xml:"username"`
-	StockSymbol    string  `xml:"stockSymbol"`
-	Filename       string  `xml:"filename"`
-	Funds          float64 `xml:"funds"`
-	ErrorMessage   string  `xml:"errorMessage"`
+	XMLName        xml.Name `xml:"errorEvent"`
+	Timestamp      int64    `xml:"timestamp"`
+	Server         string   `xml:"server"`
+	TransactionNum int64    `xml:"transactionNum"`
+	Command        string   `xml:"command"`
+	Username       string   `xml:"username"`
+	StockSymbol    string   `xml:"stockSymbol"`
+	Filename       string   `xml:"filename"`
+	Funds          float64  `xml:"funds"`
+	ErrorMessage   string   `xml:"errorMessage"`
 }
 
 // Debug: debug logs for ourselves
 type DebugEvent struct {
-	Timestamp      int64   `xml:"timestamp"`
-	Server         string  `xml:"server"`
-	TransactionNum int64   `xml:"transactionNum"`
-	Command        string  `xml:"command"`
-	Username       string  `xml:"username"`
-	StockSymbol    string  `xml:"stockSymbol"`
-	Filename       string  `xml:"filename"`
-	Funds          float64 `xml:"funds"`
-	DebugMessage   string  `xml:"debugMessage"`
+	XMLName        xml.Name `xml:"debug"`
+	Timestamp      int64    `xml:"timestamp"`
+	Server         string   `xml:"server"`
+	TransactionNum int64    `xml:"transactionNum"`
+	Command        string   `xml:"command"`
+	Username       string   `xml:"username"`
+	StockSymbol    string   `xml:"stockSymbol"`
+	Filename       string   `xml:"filename"`
+	Funds          float64  `xml:"funds"`
+	DebugMessage   string   `xml:"debugMessage"`
 }

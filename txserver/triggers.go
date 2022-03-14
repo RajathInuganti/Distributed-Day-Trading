@@ -172,7 +172,10 @@ func trigger_polling(trigger string) {
 					break
 				}
 
-				quote := get_quote(stock, os.Getenv("HOSTNAME"))
+				quote, err := get_quote(stock, os.Getenv("HOSTNAME"))
+				for err != nil {
+					quote, err = get_quote(stock, os.Getenv("HOSTNAME"))
+				}
 				quoted_price, err := strconv.ParseFloat(quote[0], 64)
 				if err != nil {
 					log.Println("error parsing string")

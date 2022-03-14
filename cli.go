@@ -132,15 +132,11 @@ func HandleCommand(command *Command) error {
 }
 
 func HandleResponse(cmd *Command, res *http.Response) error {
-	log.Printf("Got response: %s for %+v", res.Status, cmd)
-
 	bodyBytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		log.Printf("Error while reading response body: %s\n", err)
 		return err
 	}
-
-	log.Printf("Response body: %s\n", string(bodyBytes))
 
 	responseStruct := &Response{}
 	err = json.Unmarshal(bodyBytes, responseStruct)
@@ -155,12 +151,12 @@ func HandleResponse(cmd *Command, res *http.Response) error {
 	}
 
 	if cmd.Command == "DUMPLOG" {
-		file, err := os.Create(cmd.Filename)
+		file, err := os.Create("logfile.xml")
 		if err != nil {
-			log.Printf("Error while creating file: %s\n", err)
+			log.Printf("error while creating file: %s\n", err)
+			return err
 		}
 
-		log.Printf("ResponseData\n\n\n%s\n\n\n", responseStruct.Data)
 		_, err = file.Write(responseStruct.Data)
 		if err != nil {
 			log.Printf("Error while writing response body to file: %s\n", err)
@@ -204,7 +200,6 @@ func HandleResponse(cmd *Command, res *http.Response) error {
 	}
 
 	// For other commands
-	fmt.Printf("Received response: %s\n", string(responseStruct.Data))
 	return nil
 }
 

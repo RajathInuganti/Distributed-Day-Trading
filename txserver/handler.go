@@ -72,7 +72,7 @@ func add(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
+	go logAccountTransactionEvent(ctx, getHostname(), "add", command)
 	return []byte("successfully added funds to user account"), nil
 }
 
@@ -109,7 +109,7 @@ func commit_buy(ctx *context.Context, command *Command) ([]byte, error) {
 			return []byte{}, err
 		}
 
-		go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
+		go logAccountTransactionEvent(ctx, getHostname(), "remove", command)
 		return []byte("successfully committed the most recent buy"), nil
 
 	}
@@ -133,8 +133,6 @@ func cancel_buy(ctx *context.Context, command *Command) ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
-
-	go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 
 	return []byte("Successfully cancelled the recent BUY"), nil
 }
@@ -176,7 +174,7 @@ func commit_sell(ctx *context.Context, command *Command) ([]byte, error) {
 			return []byte{}, err
 		}
 
-		go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
+		go logAccountTransactionEvent(ctx, getHostname(), "add", command)
 
 		return []byte("successfully committed the most recent sell"), nil
 
@@ -201,7 +199,6 @@ func cancel_sell(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 	return []byte("Successfully cancelled the recent SELL"), nil
 }
 
@@ -229,7 +226,6 @@ func buy(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 	return []byte("buy command successful"), nil
 
 }
@@ -252,7 +248,6 @@ func sell(ctx *context.Context, command *Command) ([]byte, error) {
 			return []byte{}, err
 		}
 
-		go logAccountTransactionEvent(ctx, getHostname(), command.Command, command)
 		return []byte("sell command successful"), nil
 	}
 	return nil, errors.New("sell failed - insufficient amount of selected stock")
@@ -404,16 +399,20 @@ func quote(ctx *context.Context, command *Command) ([]byte, error) {
 		return nil, errors.New("quote command requires stock and username")
 	}
 
-	result := get_quote(command.Stock, command.Username)
+	result, err := get_quote(command.Stock, command.Username)
+	if err != nil {
+		return nil, err
+	}
 
 	price, timestamp, cryptoKey, err := parseQuote(result)
 	if err != nil {
-		return []byte{}, err
+		return nil, fmt.Errorf("failed to get quote for %s, error: %s", command.Username, err.Error())
 	}
 
 	go logQuoteServerEvent(ctx, getHostname(), cryptoKey, timestamp, price, command)
 
-	responseString := fmt.Sprintf("%s: %f", command.Stock, price)
+	responseString := fmt.Sprintf("\nstock %s\n: price %.2f\n\n", command.Stock, price)
+	log.Printf("Quote handler response: %s\n", responseString)
 	return []byte(responseString), nil
 }
 
@@ -448,7 +447,7 @@ func cancel_set_buy(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	go logAccountTransactionEvent(ctx, getHostname(), "ADD", command)
+	go logAccountTransactionEvent(ctx, getHostname(), "add", command)
 	return []byte("Successfully cancelled the SET_BUY_AMOUNT"), nil
 }
 
@@ -483,7 +482,7 @@ func cancel_set_sell(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	go logAccountTransactionEvent(ctx, getHostname(), "ADD", command)
+	go logAccountTransactionEvent(ctx, getHostname(), "add", command)
 	return []byte("Successfully cancelled the SET_SELL_AMOUNT"), nil
 }
 
@@ -533,7 +532,7 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 	// turn results into xml (bytes form)
 	defer cursor.Close(*ctx)
 	xmlEncoding := []byte(xml.Header)
-	xmlEncoding = append(xmlEncoding, []byte("<Log>\n")...)
+	xmlEncoding = append(xmlEncoding, []byte("<log>\n")...)
 	for cursor.Next(*ctx) {
 		event := &Event{}
 		err := cursor.Decode(event)
@@ -557,7 +556,7 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 		panic(err)
 	}
 
-	xmlEncoding = append(xmlEncoding, []byte("</Log>\n")...)
+	xmlEncoding = append(xmlEncoding, []byte("</log>\n")...)
 
 	return xmlEncoding, nil
 }
