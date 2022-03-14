@@ -41,33 +41,22 @@ func parseQuote(arr []string) (price float64, timestamp int64, crypto string, er
 
 //Use for testing on UVic machine
 func get_quote(stock string, username string) ([]string, error) {
-
-	log.Printf("get_quote() ran\n")
-
 	var conn net.Conn
-
 	conn = quote_server_connect()
 	for conn == nil {
 		conn = quote_server_connect()
 	}
-
-	log.Printf("Connected to quote server\n")
 
 	_, err := conn.Write([]byte(fmt.Sprintf("%s,%s\n", stock, username)))
 	for err != nil {
 		_, err = conn.Write([]byte(fmt.Sprintf("%s,%s\n", stock, username)))
 	}
 
-	log.Printf("Sent request to quote Server\n")
-
 	result := make([]byte, 1024)
 	_, err = conn.Read(result)
-	log.Printf("tried to read %s, error : %s\n", result, err)
 	if err != nil {
 		return nil, err
 	}
-
-	log.Printf("Got response from quote server : %s\n", string(result))
 
 	err = conn.Close()
 	if err != nil {

@@ -17,7 +17,9 @@ const (
 	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 )
 
-func getFakeQuote() (price float64, timestamp int64, crypto string) {
+func generateQuote() (price float64, timestamp int64, crypto string) {
+	rand.Seed(time.Now().UnixNano())
+	//#nosec
 	return rand.Float64() * 100, time.Now().Unix(), generateCryptoKey(44)
 }
 
@@ -41,15 +43,19 @@ func generateCryptoKey(n int) string {
 }
 
 func sendQuote(conn net.Conn) {
-	price, timestamp, crypto := getFakeQuote()
+	price, timestamp, crypto := generateQuote()
 	responseString := fmt.Sprintf("%f,%d,%s", price, timestamp, crypto)
 
-	conn.Write([]byte(responseString))
-
 	defer conn.Close()
+
+	_, err := conn.Write([]byte(responseString))
+	for err != nil {
+		_, err = conn.Write([]byte(responseString))
+	}
 }
 
 func main() {
+	//#nosec
 	server, err := net.Listen("tcp", ":4444")
 	if err != nil {
 		panic(err)
