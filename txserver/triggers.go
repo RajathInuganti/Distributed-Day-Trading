@@ -250,5 +250,7 @@ func update_account(ctx *context.Context, trigger string, stock string, username
 		if err != nil {
 			log.Printf("Error updating account")
 		}
+
+		log.Println("trigger successfully executed")
 	}
 }
