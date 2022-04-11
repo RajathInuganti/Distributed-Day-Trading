@@ -31,11 +31,13 @@ func sendQuote(conn net.Conn) {
 		counter += 1
 
 		log.Println(len(string(request)))
-		conn.Write([]byte(strconv.Itoa(counter) + "                                                                                                                                                                                                                                                  \n"))
+		// #nosec
+		conn.Write([]byte(strconv.Itoa(counter) + "\n"))
 	}
 }
 
 func main() {
+	// #nosec
 	server, err := net.Listen("tcp", ":4444")
 	if err != nil {
 		panic(err)
