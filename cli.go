@@ -123,7 +123,8 @@ func HandleCommand(command *Command, conn net.Conn) error {
 		return err
 	}
 
-	_, err = conn.Write(buffer.Bytes())
+	request := append([]byte(strconv.Itoa(buffer.Len())), buffer.Bytes()...)
+	_, err = conn.Write(request)
 	if err != nil {
 		log.Printf("Error while writing command: %+v", command)
 		return err
@@ -204,7 +205,7 @@ func HandleResponse(cmd *Command, res *http.Response) error {
 	return nil
 }
 
-func readResponse(conn net.Conn) {
+func ReadResponse(conn net.Conn) {
 	response := make([]byte, 1024)
 
 	for {
@@ -231,7 +232,7 @@ func readResponse(conn net.Conn) {
 	}
 }
 
-func makeSocketConnection() net.Conn {
+func MakeSocketConnection() net.Conn {
 	conn, err := net.Dial("tcp", "localhost:8080")
 	if err != nil {
 		log.Printf("Error while dialing: %s\n", err)
@@ -243,7 +244,7 @@ func makeSocketConnection() net.Conn {
 
 func main() {
 
-	conn := makeSocketConnection()
+	conn := MakeSocketConnection()
 
 	if len(os.Args) != 2 {
 		fmt.Println("Please follow the following format: go run cmd.go <path_to_workload_file.txt>")
@@ -256,7 +257,7 @@ func main() {
 
 	lines := strings.Split(string(data), "\n")
 
-	go readResponse(conn)
+	go ReadResponse(conn)
 	wg.Add(1)
 
 	for _, line := range lines {
