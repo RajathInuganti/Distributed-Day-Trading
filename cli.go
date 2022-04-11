@@ -41,8 +41,9 @@ type Command struct {
 }
 
 type Response struct {
-	Data  []byte `json:"data"`
-	Error string `json:"error"`
+	Command string `json:"command"`
+	Data    []byte `json:"data"`
+	Error   string `json:"error"`
 }
 
 type Transaction struct {

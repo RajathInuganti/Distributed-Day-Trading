@@ -593,7 +593,7 @@ func handle(ctx *context.Context, data []byte) *Response {
 	}
 
 	response.Data = responseData
-
+	response.Command = command.Command
 	return response
 }
 
