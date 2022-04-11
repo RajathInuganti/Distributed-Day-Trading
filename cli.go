@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -135,8 +135,11 @@ func HandleCommand(command *Command, conn net.Conn) error {
 		return err
 	}
 
-	request := append([]byte(strconv.Itoa(buffer.Len())), buffer.Bytes()...)
-	_, err = conn.Write(request)
+	payloadLengthInBinary := make([]byte, 8)
+	binary.LittleEndian.PutUint64(payloadLengthInBinary, uint64(buffer.Len()))
+	conn.Write(payloadLengthInBinary)
+
+	_, err = conn.Write(buffer.Bytes())
 	if err != nil {
 		log.Printf("Error while writing command: %+v", command)
 		return err
@@ -231,14 +234,14 @@ func processMessage(msg []byte, conn net.Conn) {
 }
 
 func ReadResponse(conn net.Conn) {
-	response := make([]byte, 1024*1024)
+	response := make([]byte, 30)
 
 	for {
 		numberOfBytes, err := conn.Read(response)
 		if err != nil {
 			if err == io.EOF {
 				_ = conn.Close()
-				log.Printf("connection closed")
+				log.Printf("read EOF, connection closed!\n")
 				defer wg.Done()
 				return
 			}
@@ -246,30 +249,22 @@ func ReadResponse(conn net.Conn) {
 			log.Printf("error while reading: %+v\n", err)
 		}
 
-		log.Printf("tried to read..\n")
-
 		if numberOfBytes == 0 {
-			log.Printf("number of bytes read is 0")
 			continue
 		}
-
-		log.Printf("response: %s, numberOfBytesRead: %d", string(response), numberOfBytes)
 
 		openBracketIndex := -1
 		closeBracketIndex := -1
 		messageFound := false
 		for i, b := range response[:numberOfBytes] {
 			if b == '{' {
-				log.Printf("found open bracket at index: %d\n", i)
 				openBracketIndex = i
 			}
 			if b == '}' {
-				log.Printf("found close bracket at index: %d\n", i)
 				closeBracketIndex = i
 			}
 
 			if openBracketIndex != -1 && closeBracketIndex != -1 && closeBracketIndex > openBracketIndex {
-				log.Printf("found complete message in one response, processing message..\n")
 				processMessage(response[openBracketIndex:closeBracketIndex+1], conn)
 				openBracketIndex = -1
 				closeBracketIndex = -1
@@ -277,34 +272,24 @@ func ReadResponse(conn net.Conn) {
 			}
 		}
 
-		log.Printf("value of openBracketIndex: %d, value of closeBracketIndex: %d\n", openBracketIndex, closeBracketIndex)
-
 		if openBracketIndex != -1 && closeBracketIndex == -1 {
-			log.Printf("found incomplete message in one response, waiting for more..\n")
 			buffer = append([]byte{}, response[openBracketIndex:numberOfBytes]...)
 		} else if openBracketIndex == -1 && closeBracketIndex != -1 {
-			temp := append([]byte{}, buffer...)
-			msg := append(temp, response[:closeBracketIndex+1]...)
-			log.Printf("found complete message in previous buffer + current response, processing message..\n")
+			msg := append(buffer[:], response[:closeBracketIndex+1]...)
 			processMessage(msg, conn)
 			buffer = []byte{}
 		} else if openBracketIndex != -1 && closeBracketIndex != -1 && closeBracketIndex < openBracketIndex {
-			log.Printf("found complete message in previous buffer + current response, also found one partial message, processing complete message..\n")
-			temp := append([]byte{}, buffer...)
-			msg := append(temp, response[:closeBracketIndex+1]...)
+			msg := append(buffer[:], response[:closeBracketIndex+1]...)
 			processMessage(msg, conn)
 			buffer = append([]byte{}, response[closeBracketIndex+1:]...)
 		} else {
 			// do nothing
-			log.Printf("else ran...\n")
 		}
 
 		if openBracketIndex == -1 && closeBracketIndex == -1 && !messageFound {
-			log.Printf("found no complete message in current response, appending to buffer..\n")
 			buffer = append(buffer[:], response[:numberOfBytes]...)
 		}
 
-		log.Printf("buffer: %s\n", string(buffer))
 	}
 }
 
