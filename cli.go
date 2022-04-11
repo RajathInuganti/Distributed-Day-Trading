@@ -6,17 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
-
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 // wg is used to wait for the go routine that receives data from the server
@@ -149,33 +145,20 @@ func HandleCommand(command *Command, conn net.Conn) error {
 	return nil
 }
 
-func HandleResponse(cmd *Command, res *http.Response) error {
-	bodyBytes, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		log.Printf("Error while reading response body: %s\n", err)
-		return err
-	}
-
-	responseStruct := &Response{}
-	err = json.Unmarshal(bodyBytes, responseStruct)
-	if err != nil {
-		log.Printf("Error while unmarshalling response body: %s\n", err)
-		return err
-	}
-
-	if responseStruct.Error != "" {
-		log.Printf("Got an error in the response for command: %+v, error: %s\n", cmd, responseStruct.Error)
+func HandleResponse(res *Response) error {
+	if res.Error != "" {
+		log.Printf("Got an error in the response for command: %+v, error: %s\n", res.Command, res.Error)
 		return nil
 	}
 
-	if cmd.Command == "DUMPLOG" {
+	if res.Command == "DUMPLOG" {
 		file, err := os.Create("logfile.xml")
 		if err != nil {
 			log.Printf("error while creating file: %s\n", err)
 			return err
 		}
 
-		_, err = file.Write(responseStruct.Data)
+		_, err = file.Write(res.Data)
 		if err != nil {
 			log.Printf("Error while writing response body to file: %s\n", err)
 			return err
@@ -186,49 +169,31 @@ func HandleResponse(cmd *Command, res *http.Response) error {
 			log.Printf("Error while closing file: %s\n", err)
 		}
 
-		fmt.Printf("Contents successfully written to %s\n", cmd.Filename)
+		fmt.Printf("Contents successfully written to logfile.xml\n")
 		return nil
+	} else {
+		fmt.Printf("%s\n", res.Data)
 	}
 
-	if cmd.Command == "DISPLAY_SUMMARY" {
-		userAccount := &UserAccount{}
-		err = bson.Unmarshal(responseStruct.Data, userAccount)
-		if err != nil {
-			log.Printf("Error while unmarshalling response body for cmd: %s, rawBytes: %s, error: %s\n", cmd.Command, responseStruct.Data, err)
-		}
-
-		fmt.Printf("-----User Account Summary-----\n")
-		fmt.Printf("Username: %s\n", userAccount.Username)
-		fmt.Printf("balance: %f\n", userAccount.Balance)
-		for stock, amount := range userAccount.Stocks {
-			fmt.Printf("stock %s: %f\n", stock, amount)
-		}
-		for _, t := range userAccount.Transactions {
-			fmt.Printf("transaction: %3d, %9d, %s, %s, %f\n", t.ID, t.Timestamp, t.TransactionType, t.Stock, t.Amount)
-		}
-		for _, t := range userAccount.BuyTriggers {
-			fmt.Printf("buy trigger: %v\n", t)
-		}
-		for _, t := range userAccount.SellTriggers {
-			fmt.Printf("sell trigger: %v\n", t)
-		}
-		fmt.Printf("-----End------\n\n")
-
-		return nil
-	}
-
-	// For other commands
 	return nil
 }
 
 func processMessage(msg []byte, conn net.Conn) {
-	log.Printf("parsed message: %s\n", string(msg))
+	response := &Response{}
+	err := json.Unmarshal(msg, response)
+	if err != nil {
+		log.Printf("Error while unmarshalling response: %s, error: %s\n", string(msg), err)
+	}
+
+	err = HandleResponse(response)
+	if err != nil {
+		log.Printf("Error while handling response: %s, error: %s\n", string(msg), err)
+	}
 
 	atomic.AddUint64(&counter, ^uint64(0))
-	log.Println("decremented counter: ", atomic.LoadUint64(&counter))
 	if allRequestsSent && atomic.LoadUint64(&counter) == 0 {
 		log.Printf("all requests sent and responses received, closing connection..\n")
-		_ = conn.Close()
+		defer conn.Close()
 		defer wg.Done()
 		return
 	}
@@ -309,7 +274,7 @@ func main() {
 	conn := MakeSocketConnection()
 
 	if len(os.Args) != 2 {
-		fmt.Println("Please follow the following format: go run cmd.go <path_to_workload_file.txt>")
+		fmt.Println("Please follow the following format: go run res.Command.go <path_to_workload_file.txt>")
 		panic("Unexpected number of arguments")
 	}
 
