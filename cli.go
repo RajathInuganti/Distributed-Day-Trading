@@ -28,6 +28,9 @@ var counter uint64
 // set to true only when all requests have been sent to the server. This is used to stop the go routine that receives responses from the server
 var allRequestsSent bool = false
 
+// for storing the response bytes
+var buffer []byte = []byte{}
+
 // Command struct is a representation of an isolated command executed by a user
 type Command struct {
 	Command  string `json:"Command"`
@@ -214,8 +217,21 @@ func HandleResponse(cmd *Command, res *http.Response) error {
 	return nil
 }
 
+func processMessage(msg []byte, conn net.Conn) {
+	log.Printf("parsed message: %s\n", string(msg))
+
+	atomic.AddUint64(&counter, ^uint64(0))
+	log.Println("decremented counter: ", atomic.LoadUint64(&counter))
+	if allRequestsSent && atomic.LoadUint64(&counter) == 0 {
+		log.Printf("all requests sent and responses received, closing connection..\n")
+		_ = conn.Close()
+		defer wg.Done()
+		return
+	}
+}
+
 func ReadResponse(conn net.Conn) {
-	response := make([]byte, 1024)
+	response := make([]byte, 1024*1024)
 
 	for {
 		numberOfBytes, err := conn.Read(response)
@@ -237,16 +253,58 @@ func ReadResponse(conn net.Conn) {
 			continue
 		}
 
-		log.Println("response: ", string(response))
+		log.Printf("response: %s, numberOfBytesRead: %d", string(response), numberOfBytes)
 
-		atomic.AddUint64(&counter, ^uint64(0))
-		log.Println("decremented counter: ", atomic.LoadUint64(&counter))
-		if allRequestsSent && atomic.LoadUint64(&counter) == 0 {
-			log.Printf("all requests sent and responses received, closing connection..\n")
-			_ = conn.Close()
-			defer wg.Done()
-			return
+		openBracketIndex := -1
+		closeBracketIndex := -1
+		messageFound := false
+		for i, b := range response[:numberOfBytes] {
+			if b == '{' {
+				log.Printf("found open bracket at index: %d\n", i)
+				openBracketIndex = i
+			}
+			if b == '}' {
+				log.Printf("found close bracket at index: %d\n", i)
+				closeBracketIndex = i
+			}
+
+			if openBracketIndex != -1 && closeBracketIndex != -1 && closeBracketIndex > openBracketIndex {
+				log.Printf("found complete message in one response, processing message..\n")
+				processMessage(response[openBracketIndex:closeBracketIndex+1], conn)
+				openBracketIndex = -1
+				closeBracketIndex = -1
+				messageFound = true
+			}
 		}
+
+		log.Printf("value of openBracketIndex: %d, value of closeBracketIndex: %d\n", openBracketIndex, closeBracketIndex)
+
+		if openBracketIndex != -1 && closeBracketIndex == -1 {
+			log.Printf("found incomplete message in one response, waiting for more..\n")
+			buffer = append([]byte{}, response[openBracketIndex:numberOfBytes]...)
+		} else if openBracketIndex == -1 && closeBracketIndex != -1 {
+			temp := append([]byte{}, buffer...)
+			msg := append(temp, response[:closeBracketIndex+1]...)
+			log.Printf("found complete message in previous buffer + current response, processing message..\n")
+			processMessage(msg, conn)
+			buffer = []byte{}
+		} else if openBracketIndex != -1 && closeBracketIndex != -1 && closeBracketIndex < openBracketIndex {
+			log.Printf("found complete message in previous buffer + current response, also found one partial message, processing complete message..\n")
+			temp := append([]byte{}, buffer...)
+			msg := append(temp, response[:closeBracketIndex+1]...)
+			processMessage(msg, conn)
+			buffer = append([]byte{}, response[closeBracketIndex+1:]...)
+		} else {
+			// do nothing
+			log.Printf("else ran...\n")
+		}
+
+		if openBracketIndex == -1 && closeBracketIndex == -1 && !messageFound {
+			log.Printf("found no complete message in current response, appending to buffer..\n")
+			buffer = append(buffer[:], response[:numberOfBytes]...)
+		}
+
+		log.Printf("buffer: %s\n", string(buffer))
 	}
 }
 
@@ -297,6 +355,7 @@ func main() {
 
 		atomic.AddUint64(&counter, 1)
 		log.Println("counter: ", atomic.LoadUint64(&counter))
+
 	}
 
 	allRequestsSent = true
