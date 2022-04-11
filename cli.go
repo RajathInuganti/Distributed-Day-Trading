@@ -11,13 +11,22 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"go.mongodb.org/mongo-driver/bson"
 )
 
+// wg is used to wait for the go routine that receives data from the server
 var wg sync.WaitGroup
+
+// keeps track of the number of responses to be received from the server
+var counter uint64
+
+// set to true only when all requests have been sent to the server. This is used to stop the go routine that receives responses from the server
+var allRequestsSent bool = false
 
 // Command struct is a representation of an isolated command executed by a user
 type Command struct {
@@ -228,7 +237,16 @@ func ReadResponse(conn net.Conn) {
 			continue
 		}
 
-		log.Println(string(response))
+		log.Println("response: ", string(response))
+
+		atomic.AddUint64(&counter, ^uint64(0))
+		log.Println("decremented counter: ", atomic.LoadUint64(&counter))
+		if allRequestsSent && atomic.LoadUint64(&counter) == 0 {
+			log.Printf("all requests sent and responses received, closing connection..\n")
+			_ = conn.Close()
+			defer wg.Done()
+			return
+		}
 	}
 }
 
@@ -276,7 +294,12 @@ func main() {
 		if err != nil {
 			log.Printf("Error while handling command %+v: %s\n", requestData, err)
 		}
+
+		atomic.AddUint64(&counter, 1)
+		log.Println("counter: ", atomic.LoadUint64(&counter))
 	}
+
+	allRequestsSent = true
 
 	wg.Wait()
 }
