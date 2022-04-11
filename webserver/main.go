@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 )
 
 var txCount int
+var buffer = make([]byte, 1024)
 
 type commandHandler struct {
 	queue     string
@@ -19,31 +21,6 @@ type commandHandler struct {
 }
 
 func (handler commandHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-
-	var body Command
-	if request.Method != "POST" {
-		return
-	}
-
-	err := json.NewDecoder(request.Body).Decode(&body)
-	failOnError("Failed to read HTTP request body", err)
-
-	command, err := json.Marshal(body)
-	failOnError("Failed to unmarshal HTTP request body", err)
-
-	txCount = txCount + 1
-	CorrelationId := strconv.Itoa(txCount)
-
-	channel := make(chan []byte, 1)
-	(*handler.responses)[CorrelationId] = channel
-
-	Publish(handler.ch, handler.queue, command, CorrelationId)
-
-	response := <-channel
-	_, err = writer.Write(response)
-	failOnError("Unable to write response", err)
-
-	delete(*handler.responses, CorrelationId)
 }
 
 func Publish(ch *amqp.Channel, queue string, command []byte, txNum string) {
@@ -90,6 +67,35 @@ func startQueueService(ch *amqp.Channel, queue string, responses *map[string]cha
 	}
 }
 
+func handleConnection(conn net.Conn, queue string, ch *amqp.Channel, responses *map[string]chan []byte) {
+	var body Command
+
+	for {
+		size := 
+	}
+
+	err := json.NewDecoder(request.Body).Decode(&body)
+	failOnError("Failed to read HTTP request body", err)
+
+	command, err := json.Marshal(body)
+	failOnError("Failed to unmarshal HTTP request body", err)
+
+	txCount = txCount + 1
+	CorrelationId := strconv.Itoa(txCount)
+
+	channel := make(chan []byte, 1)
+	(*handler.responses)[CorrelationId] = channel
+
+	Publish(handler.ch, handler.queue, command, CorrelationId)
+
+	response := <-channel
+	_, err = writer.Write(response)
+	failOnError("Unable to write response", err)
+
+	delete(*handler.responses, CorrelationId)
+	return
+}
+
 func main() {
 
 	containerID := os.Getenv("HOSTNAME")
@@ -98,11 +104,27 @@ func main() {
 	ch := setupChannel()
 	go startQueueService(ch, containerID, &responses)
 
-	handler := commandHandler{responses: &responses, ch: ch, queue: containerID}
+	// handler := commandHandler{responses: &responses, ch: ch, queue: containerID}
 
-	http.Handle("/transaction", handler)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	// http.Handle("/transaction", handler)
+	// log.Fatal(http.ListenAndServe(":8080", nil))
 
+	server, err := net.Listen("tcp", ":8080")
+	if err != nil {
+		panic(err)
+	}
+
+	log.Println("Listening on localhost:4444")
+
+	for {
+		conn, err := server.Accept()
+		if err != nil {
+			log.Printf("error while accepting: %+v\n", err)
+			panic(err)
+		}
+
+		go handleConnection(conn, containerID, ch, &responses)
+	}
 }
 
 func setupChannel() *amqp.Channel {

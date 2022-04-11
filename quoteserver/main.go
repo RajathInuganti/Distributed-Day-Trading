@@ -52,6 +52,8 @@ func sendQuote(conn net.Conn) {
 	for err != nil {
 		_, err = conn.Write([]byte(responseString))
 	}
+
+	log.Printf("Sent quote: %s", responseString)
 }
 
 func main() {

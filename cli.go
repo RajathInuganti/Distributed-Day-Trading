@@ -4,15 +4,20 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"go.mongodb.org/mongo-driver/bson"
 )
+
+var wg sync.WaitGroup
 
 // Command struct is a representation of an isolated command executed by a user
 type Command struct {
@@ -110,7 +115,7 @@ func checkError(e error, additionalMessage string) {
 	}
 }
 
-func HandleCommand(command *Command) error {
+func HandleCommand(command *Command, conn net.Conn) error {
 	var buffer bytes.Buffer
 	err := json.NewEncoder(&buffer).Encode(command)
 	if err != nil {
@@ -118,16 +123,12 @@ func HandleCommand(command *Command) error {
 		return err
 	}
 
-	res, err := http.Post("http://localhost:8080/transaction", "application/json", &buffer)
+	_, err = conn.Write(buffer.Bytes())
 	if err != nil {
-		log.Printf("Error while sending request: %s for command: %+v", err, *command)
+		log.Printf("Error while writing command: %+v", command)
 		return err
 	}
 
-	err = HandleResponse(command, res)
-	if err != nil {
-		log.Printf("Error while handling response for cmd: %+v: %s\n", command, err)
-	}
 	return nil
 }
 
@@ -203,7 +204,47 @@ func HandleResponse(cmd *Command, res *http.Response) error {
 	return nil
 }
 
+func readResponse(conn net.Conn) {
+	response := make([]byte, 1024)
+
+	for {
+		numberOfBytes, err := conn.Read(response)
+		if err != nil {
+			if err == io.EOF {
+				_ = conn.Close()
+				log.Printf("connection closed")
+				defer wg.Done()
+				return
+			}
+
+			log.Printf("error while reading: %+v\n", err)
+		}
+
+		log.Printf("tried to read..\n")
+
+		if numberOfBytes == 0 {
+			log.Printf("number of bytes read is 0")
+			continue
+		}
+
+		log.Println(string(response))
+	}
+}
+
+func makeSocketConnection() net.Conn {
+	conn, err := net.Dial("tcp", "localhost:8080")
+	if err != nil {
+		log.Printf("Error while dialing: %s\n", err)
+		panic(err)
+	}
+
+	return conn
+}
+
 func main() {
+
+	conn := makeSocketConnection()
+
 	if len(os.Args) != 2 {
 		fmt.Println("Please follow the following format: go run cmd.go <path_to_workload_file.txt>")
 		panic("Unexpected number of arguments")
@@ -214,7 +255,11 @@ func main() {
 	checkError(err, "Error while reading file")
 
 	lines := strings.Split(string(data), "\n")
-	for i, line := range lines {
+
+	go readResponse(conn)
+	wg.Add(1)
+
+	for _, line := range lines {
 		if line == "" {
 			continue
 		}
@@ -222,16 +267,15 @@ func main() {
 		requestData, err := FromStringToCommandStruct(line)
 		checkError(err, "Couldn't convert line from file to command struct")
 
-		fmt.Printf("iteration: %d requestData: %#v\n", i+1, requestData)
-
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		err = HandleCommand(requestData)
+		err = HandleCommand(requestData, conn)
 		if err != nil {
 			log.Printf("Error while handling command %+v: %s\n", requestData, err)
 		}
 	}
 
+	wg.Wait()
 }
