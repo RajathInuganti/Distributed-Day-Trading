@@ -2,17 +2,30 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
-	"net/http"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"go.mongodb.org/mongo-driver/bson"
+	"sync"
+	"sync/atomic"
 )
+
+// wg is used to wait for the go routine that receives data from the server
+var wg sync.WaitGroup
+
+// keeps track of the number of responses to be received from the server
+var counter uint64
+
+// set to true only when all requests have been sent to the server. This is used to stop the go routine that receives responses from the server
+var allRequestsSent bool = false
+
+// for storing the response bytes
+var buffer []byte = []byte{}
 
 // Command struct is a representation of an isolated command executed by a user
 type Command struct {
@@ -24,8 +37,9 @@ type Command struct {
 }
 
 type Response struct {
-	Data  []byte `json:"data"`
-	Error string `json:"error"`
+	Command string `json:"command"`
+	Data    []byte `json:"data"`
+	Error   string `json:"error"`
 }
 
 type Transaction struct {
@@ -110,7 +124,7 @@ func checkError(e error, additionalMessage string) {
 	}
 }
 
-func HandleCommand(command *Command) error {
+func HandleCommand(command *Command, conn net.Conn) error {
 	var buffer bytes.Buffer
 	err := json.NewEncoder(&buffer).Encode(command)
 	if err != nil {
@@ -118,46 +132,36 @@ func HandleCommand(command *Command) error {
 		return err
 	}
 
-	res, err := http.Post("http://localhost:8080/transaction", "application/json", &buffer)
+	payloadLengthInBinary := make([]byte, 8)
+	binary.LittleEndian.PutUint64(payloadLengthInBinary, uint64(buffer.Len()))
+	_, err = conn.Write(payloadLengthInBinary)
+	for err != nil {
+		_, err = conn.Write(payloadLengthInBinary)
+	}
+
+	_, err = conn.Write(buffer.Bytes())
 	if err != nil {
-		log.Printf("Error while sending request: %s for command: %+v", err, *command)
+		log.Printf("Error while writing command: %+v", command)
 		return err
 	}
 
-	err = HandleResponse(command, res)
-	if err != nil {
-		log.Printf("Error while handling response for cmd: %+v: %s\n", command, err)
-	}
 	return nil
 }
 
-func HandleResponse(cmd *Command, res *http.Response) error {
-	bodyBytes, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		log.Printf("Error while reading response body: %s\n", err)
-		return err
-	}
-
-	responseStruct := &Response{}
-	err = json.Unmarshal(bodyBytes, responseStruct)
-	if err != nil {
-		log.Printf("Error while unmarshalling response body: %s\n", err)
-		return err
-	}
-
-	if responseStruct.Error != "" {
-		log.Printf("Got an error in the response for command: %+v, error: %s\n", cmd, responseStruct.Error)
+func HandleResponse(res *Response) error {
+	if res.Error != "" {
+		log.Printf("Got an error in the response for command: %+v, error: %s\n", res.Command, res.Error)
 		return nil
 	}
 
-	if cmd.Command == "DUMPLOG" {
+	if res.Command == "DUMPLOG" {
 		file, err := os.Create("logfile.xml")
 		if err != nil {
 			log.Printf("error while creating file: %s\n", err)
 			return err
 		}
 
-		_, err = file.Write(responseStruct.Data)
+		_, err = file.Write(res.Data)
 		if err != nil {
 			log.Printf("Error while writing response body to file: %s\n", err)
 			return err
@@ -168,44 +172,112 @@ func HandleResponse(cmd *Command, res *http.Response) error {
 			log.Printf("Error while closing file: %s\n", err)
 		}
 
-		fmt.Printf("Contents successfully written to %s\n", cmd.Filename)
+		fmt.Printf("Contents successfully written to logfile.xml\n")
 		return nil
+	} else {
+		fmt.Printf("%s\n", res.Data)
 	}
 
-	if cmd.Command == "DISPLAY_SUMMARY" {
-		userAccount := &UserAccount{}
-		err = bson.Unmarshal(responseStruct.Data, userAccount)
-		if err != nil {
-			log.Printf("Error while unmarshalling response body for cmd: %s, rawBytes: %s, error: %s\n", cmd.Command, responseStruct.Data, err)
-		}
-
-		fmt.Printf("-----User Account Summary-----\n")
-		fmt.Printf("Username: %s\n", userAccount.Username)
-		fmt.Printf("balance: %f\n", userAccount.Balance)
-		for stock, amount := range userAccount.Stocks {
-			fmt.Printf("stock %s: %f\n", stock, amount)
-		}
-		for _, t := range userAccount.Transactions {
-			fmt.Printf("transaction: %3d, %9d, %s, %s, %f\n", t.ID, t.Timestamp, t.TransactionType, t.Stock, t.Amount)
-		}
-		for _, t := range userAccount.BuyTriggers {
-			fmt.Printf("buy trigger: %v\n", t)
-		}
-		for _, t := range userAccount.SellTriggers {
-			fmt.Printf("sell trigger: %v\n", t)
-		}
-		fmt.Printf("-----End------\n\n")
-
-		return nil
-	}
-
-	// For other commands
 	return nil
 }
 
+func processMessage(msg []byte, conn net.Conn) {
+	response := &Response{}
+	err := json.Unmarshal(msg, response)
+	if err != nil {
+		log.Printf("Error while unmarshalling response: %s, error: %s\n", string(msg), err)
+	}
+
+	err = HandleResponse(response)
+	if err != nil {
+		log.Printf("Error while handling response: %s, error: %s\n", string(msg), err)
+	}
+
+	atomic.AddUint64(&counter, ^uint64(0))
+	if allRequestsSent && atomic.LoadUint64(&counter) == 0 {
+		log.Printf("all requests sent and responses received, closing connection..\n")
+		defer conn.Close()
+		defer wg.Done()
+		return
+	}
+}
+
+func ReadResponse(conn net.Conn) {
+	response := make([]byte, 30)
+
+	for {
+		numberOfBytes, err := conn.Read(response)
+		if err != nil {
+			if err == io.EOF {
+				_ = conn.Close()
+				log.Printf("read EOF, connection closed!\n")
+				defer wg.Done()
+				return
+			}
+
+			log.Printf("error while reading: %+v\n", err)
+		}
+
+		if numberOfBytes == 0 {
+			continue
+		}
+
+		openBracketIndex := -1
+		closeBracketIndex := -1
+		messageFound := false
+		for i, b := range response[:numberOfBytes] {
+			if b == '{' {
+				openBracketIndex = i
+			}
+			if b == '}' {
+				closeBracketIndex = i
+			}
+
+			if openBracketIndex != -1 && closeBracketIndex != -1 && closeBracketIndex > openBracketIndex {
+				processMessage(response[openBracketIndex:closeBracketIndex+1], conn)
+				openBracketIndex = -1
+				closeBracketIndex = -1
+				messageFound = true
+			}
+		}
+
+		if openBracketIndex != -1 && closeBracketIndex == -1 {
+			buffer = append([]byte{}, response[openBracketIndex:numberOfBytes]...)
+		} else if openBracketIndex == -1 && closeBracketIndex != -1 {
+			msg := append(buffer[:], response[:closeBracketIndex+1]...)
+			processMessage(msg, conn)
+			buffer = []byte{}
+		} else if openBracketIndex != -1 && closeBracketIndex != -1 && closeBracketIndex < openBracketIndex {
+			msg := append(buffer[:], response[:closeBracketIndex+1]...)
+			processMessage(msg, conn)
+			buffer = append([]byte{}, response[closeBracketIndex+1:]...)
+		} else {
+			// do nothing
+		}
+
+		if openBracketIndex == -1 && closeBracketIndex == -1 && !messageFound {
+			buffer = append(buffer[:], response[:numberOfBytes]...)
+		}
+
+	}
+}
+
+func MakeSocketConnection() net.Conn {
+	conn, err := net.Dial("tcp", "localhost:8080")
+	if err != nil {
+		log.Printf("Error while dialing: %s\n", err)
+		panic(err)
+	}
+
+	return conn
+}
+
 func main() {
+
+	conn := MakeSocketConnection()
+
 	if len(os.Args) != 2 {
-		fmt.Println("Please follow the following format: go run cmd.go <path_to_workload_file.txt>")
+		fmt.Println("Please follow the following format: go run res.Command.go <path_to_workload_file.txt>")
 		panic("Unexpected number of arguments")
 	}
 
@@ -214,7 +286,11 @@ func main() {
 	checkError(err, "Error while reading file")
 
 	lines := strings.Split(string(data), "\n")
-	for i, line := range lines {
+
+	go ReadResponse(conn)
+	wg.Add(1)
+
+	for _, line := range lines {
 		if line == "" {
 			continue
 		}
@@ -222,16 +298,21 @@ func main() {
 		requestData, err := FromStringToCommandStruct(line)
 		checkError(err, "Couldn't convert line from file to command struct")
 
-		fmt.Printf("iteration: %d requestData: %#v\n", i+1, requestData)
-
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		err = HandleCommand(requestData)
+		err = HandleCommand(requestData, conn)
 		if err != nil {
 			log.Printf("Error while handling command %+v: %s\n", requestData, err)
 		}
+
+		atomic.AddUint64(&counter, 1)
+		log.Println("counter: ", atomic.LoadUint64(&counter))
+
 	}
 
+	allRequestsSent = true
+
+	wg.Wait()
 }
