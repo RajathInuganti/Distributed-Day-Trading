@@ -497,12 +497,24 @@ func display_summary(ctx *context.Context, command *Command) ([]byte, error) {
 		return nil, err
 	}
 
-	responseData, err := bson.Marshal(account)
-	if err != nil {
-		return nil, errors.New("an error occured while marshalling account")
+	summary := "-----User Account Summary-----\n"
+	summary += fmt.Sprintf("Username: %s\n", account.Username)
+	summary += fmt.Sprintf("balance: %f\n", account.Balance)
+	for stock, amount := range account.Stocks {
+		summary += fmt.Sprintf("stock %s: %f\n", stock, amount)
 	}
+	for _, t := range account.Transactions {
+		summary += fmt.Sprintf("transaction: %3d, %9d, %s, %s, %f\n", t.ID, t.Timestamp, t.TransactionType, t.Stock, t.Amount)
+	}
+	for _, t := range account.BuyTriggers {
+		summary += fmt.Sprintf("buy trigger: %v\n", t)
+	}
+	for _, t := range account.SellTriggers {
+		summary += fmt.Sprintf("sell trigger: %v\n", t)
+	}
+	summary += "-----End------\n\n"
 
-	return responseData, nil
+	return []byte(summary), nil
 }
 
 func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
