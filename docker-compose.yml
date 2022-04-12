@@ -29,10 +29,13 @@ services:
 
   txserver:
     build: txserver
-    container_name: txserver
+    image: txserver
     restart: always
     depends_on:
       - rabbitmq
+    deploy:
+      mode: replicated
+      replicas: 1
     networks:
       - txnetwork
     command: sh -c "/wait && /src/main"
@@ -46,6 +49,7 @@ services:
   
   webserver:
     build: webserver
+    image: webserver
     container_name: webserver
     restart: always
     ports:
@@ -64,19 +68,13 @@ services:
   
   quoteserver:
     build: quoteserver
+    image: quoteserver
     container_name: quoteserver
     restart: always
     ports:
      - 4444:4444
     networks:
        - txnetwork
-    command: sh -c "/wait && /src/main"
-    environment:
-      WAIT_HOSTS: ${WAIT_HOSTS}
-      WAIT_HOSTS_TIMEOUT: ${WAIT_HOSTS_TIMEOUT}
-      WAIT_SLEEP_INTERVAL: ${WAIT_SLEEP_INTERVAL}
-      WAIT_HOST_CONNECT_TIMEOUT: ${WAIT_HOST_CONNECT_TIMEOUT}
-      WAIT_BEFORE_HOSTS: ${WAIT_BEFORE_HOSTS}
 
 
   rabbitmq:
