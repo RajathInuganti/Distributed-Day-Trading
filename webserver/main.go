@@ -79,7 +79,8 @@ func startQueueService(ch *amqp.Channel, queue string, responses *map[string]net
 
 	for message := range messages {
 		conn := (*responses)[message.CorrelationId]
-		conn.Write(message.Body)
+		_, err = conn.Write(message.Body)
+		failOnError("Failed to send response", err)
 	}
 }
 
@@ -91,7 +92,7 @@ func main() {
 	ch := setupChannel()
 	go startQueueService(ch, containerID, &responses)
 
-	server, err := net.Listen("tcp", ":8080")
+	server, err := net.Listen("tcp", "127.0.0.1:8080")
 	if err != nil {
 		panic(err)
 	}
@@ -103,10 +104,8 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-
 		go HandleConn(conn, containerID, ch, &responses)
 	}
-
 }
 
 func setupChannel() *amqp.Channel {
