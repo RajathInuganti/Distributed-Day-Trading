@@ -7,11 +7,13 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 
 	"github.com/streadway/amqp"
 )
 
-func HandleConn(conn net.Conn, queue string, ch *amqp.Channel, responses *map[string]net.Conn) {
+func HandleConn(conn net.Conn, queue string, ch *amqp.Channel, responses *map[string]net.Conn,
+	lock *sync.Mutex) {
 
 	var body Command
 
@@ -22,6 +24,11 @@ func HandleConn(conn net.Conn, queue string, ch *amqp.Channel, responses *map[st
 			log.Printf("error while reading: %+v\n", err)
 		}
 		size := int64(binary.LittleEndian.Uint64(msgsize))
+		if size == 0 {
+			err = conn.Close()
+			failOnError("Could not close connection", err)
+			return
+		}
 
 		message := make([]byte, size)
 		_, err = conn.Read(message)
@@ -33,7 +40,9 @@ func HandleConn(conn net.Conn, queue string, ch *amqp.Channel, responses *map[st
 		failOnError("Failed to unmarshal JSON", err)
 
 		CorrelationId := body.Username
+		lock.Lock()
 		(*responses)[CorrelationId] = conn
+		lock.Unlock()
 
 		Publish(ch, queue, message, CorrelationId)
 	}
@@ -54,7 +63,8 @@ func Publish(ch *amqp.Channel, queue string, command []byte, CorrelationId strin
 	failOnError("Failed to publish a message", err)
 }
 
-func startQueueService(ch *amqp.Channel, queue string, responses *map[string]net.Conn) {
+func startQueueService(ch *amqp.Channel, queue string, responses *map[string]net.Conn,
+	lock *sync.Mutex) {
 
 	q, err := ch.QueueDeclare(
 		queue, // name
@@ -78,7 +88,9 @@ func startQueueService(ch *amqp.Channel, queue string, responses *map[string]net
 	failOnError("Failed to register a consumer", err)
 
 	for message := range messages {
+		lock.Lock()
 		conn := (*responses)[message.CorrelationId]
+		lock.Unlock()
 		_, err = conn.Write(message.Body)
 		failOnError("Failed to send response", err)
 	}
@@ -89,10 +101,11 @@ func main() {
 	containerID := os.Getenv("HOSTNAME")
 	responses := make(map[string]net.Conn)
 
+	var lock sync.Mutex
 	ch := setupChannel()
-	go startQueueService(ch, containerID, &responses)
+	go startQueueService(ch, containerID, &responses, &lock)
 
-	server, err := net.Listen("tcp", "127.0.0.1:8080")
+	server, err := net.Listen("tcp", os.Getenv("WEBSERVER_URL"))
 	if err != nil {
 		panic(err)
 	}
@@ -104,7 +117,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		go HandleConn(conn, containerID, ch, &responses)
+		go HandleConn(conn, containerID, ch, &responses, &lock)
 	}
 }
 
