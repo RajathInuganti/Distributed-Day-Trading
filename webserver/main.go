@@ -98,6 +98,7 @@ func startQueueService(ch *amqp.Channel, queue string, responses *map[string]net
 
 func main() {
 
+	port := ":8080"
 	containerID := os.Getenv("HOSTNAME")
 	responses := make(map[string]net.Conn)
 
@@ -105,7 +106,7 @@ func main() {
 	ch := setupChannel()
 	go startQueueService(ch, containerID, &responses, &lock)
 
-	server, err := net.Listen("tcp", ":8080")
+	server, err := net.Listen("tcp", port)
 	if err != nil {
 		panic(err)
 	}
