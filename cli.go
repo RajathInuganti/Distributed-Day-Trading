@@ -134,7 +134,10 @@ func HandleCommand(command *Command, conn net.Conn) error {
 
 	payloadLengthInBinary := make([]byte, 8)
 	binary.LittleEndian.PutUint64(payloadLengthInBinary, uint64(buffer.Len()))
-	conn.Write(payloadLengthInBinary)
+	_, err = conn.Write(payloadLengthInBinary)
+	for err != nil {
+		_, err = conn.Write(payloadLengthInBinary)
+	}
 
 	_, err = conn.Write(buffer.Bytes())
 	if err != nil {
