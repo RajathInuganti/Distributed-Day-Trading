@@ -154,6 +154,11 @@ func HandleResponse(res *Response) error {
 			log.Printf("Error while closing file: %s\n", err)
 		}
 
+		err = gzip.Close()
+		if err != nil {
+			log.Printf("Error while closing gzip reader: %s\n", err)
+		}
+
 		log.Printf("Contents successfully written to logfile.xml\n")
 		return nil
 	} else {

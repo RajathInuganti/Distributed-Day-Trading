@@ -580,7 +580,11 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	gz.Close()
+	err = gz.Close()
+	if err != nil {
+		log.Printf("Error while closing gzip writer, error: %s", err)
+		return []byte{}, err
+	}
 
 	return b.Bytes(), nil
 }
