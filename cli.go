@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // wg is used to wait for the go routine that receives data from the server
@@ -40,39 +41,6 @@ type Response struct {
 	Command string `json:"command"`
 	Data    []byte `json:"data"`
 	Error   string `json:"error"`
-}
-
-type Transaction struct {
-	ID              int64   `bson:"id"`
-	Timestamp       int64   `bson:"timestamp"`
-	TransactionType string  `bson:"transactionType"`
-	Amount          float64 `bson:"amount"`
-	Stock           string  `bson:"stock"`
-}
-
-type UserAccount struct {
-	Username     string             `bson:"username"`
-	Balance      float64            `bson:"balance"`
-	Created      int64              `bson:"created"`
-	Updated      int64              `bson:"updated"`
-	BuyAmounts   map[string]float64 `bson:"buy"`
-	SellAmounts  map[string]float64 `bson:"sell"`
-	BuyTriggers  map[string]float64 `bson:"buyTriggers"`
-	SellTriggers map[string]float64 `bson:"sellTriggers"`
-	Stocks       map[string]float64 `bson:"stocks"`
-	Transactions []*Transaction     `bson:"transactions"`
-	RecentBuy    *CommandHistory    `bson:"recentBuy"`
-	RecentSell   *CommandHistory    `bson:"recentSell"`
-}
-type Trigger struct {
-	Stock string  `bson:"stock"`
-	Price float64 `bson:"price"`
-}
-
-type CommandHistory struct {
-	Timestamp int64   `bson:"timestamp"`
-	Amount    float64 `bson:"amount"`
-	Stock     string  `bson:"stock"`
 }
 
 // FromStringToCommandStruct takes a line from the user command file as an input and returns a defined golang structure
@@ -150,7 +118,7 @@ func HandleCommand(command *Command, conn net.Conn) error {
 
 func HandleResponse(res *Response) error {
 	if res.Error != "" {
-		log.Printf("Got an error in the response for command: %+v, error: %s\n", res.Command, res.Error)
+		log.Printf("command: %s, Error: %s\n", res.Command, res.Error)
 		return nil
 	}
 
@@ -172,10 +140,10 @@ func HandleResponse(res *Response) error {
 			log.Printf("Error while closing file: %s\n", err)
 		}
 
-		fmt.Printf("Contents successfully written to logfile.xml\n")
+		log.Printf("Contents successfully written to logfile.xml\n")
 		return nil
 	} else {
-		fmt.Printf("%s\n", res.Data)
+		log.Printf("%s\n", res.Data)
 	}
 
 	return nil
@@ -203,16 +171,13 @@ func processMessage(msg []byte, conn net.Conn) {
 }
 
 func ReadResponse(conn net.Conn) {
-	response := make([]byte, 30)
+	response := make([]byte, 1024*10)
 
 	for {
 		numberOfBytes, err := conn.Read(response)
 		if err != nil {
 			if err == io.EOF {
-				_ = conn.Close()
-				log.Printf("read EOF, connection closed!\n")
-				defer wg.Done()
-				return
+				continue
 			}
 
 			log.Printf("error while reading: %+v\n", err)
@@ -274,6 +239,7 @@ func MakeSocketConnection() net.Conn {
 
 func main() {
 
+	s1 := time.Now()
 	conn := MakeSocketConnection()
 
 	if len(os.Args) != 2 {
@@ -308,11 +274,12 @@ func main() {
 		}
 
 		atomic.AddUint64(&counter, 1)
-		log.Println("counter: ", atomic.LoadUint64(&counter))
-
 	}
 
 	allRequestsSent = true
+	log.Printf("All requests sent, waiting for responses..\n")
 
 	wg.Wait()
+
+	log.Printf("Took %s\n", time.Since(s1))
 }
