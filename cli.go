@@ -2,10 +2,12 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -129,7 +131,19 @@ func HandleResponse(res *Response) error {
 			return err
 		}
 
-		_, err = file.Write(res.Data)
+		gzip, err := gzip.NewReader(bytes.NewReader(res.Data))
+		if err != nil {
+			log.Printf("error while creating gzip reader: %s\n", err)
+			return err
+		}
+
+		uncompressedData, err := ioutil.ReadAll(gzip)
+		if err != nil {
+			log.Printf("error while reading gzip data: %s\n", err)
+			return err
+		}
+
+		_, err = file.Write(uncompressedData)
 		if err != nil {
 			log.Printf("Error while writing response body to file: %s\n", err)
 			return err

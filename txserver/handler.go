@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"encoding/xml"
@@ -570,7 +572,17 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 
 	xmlEncoding = append(xmlEncoding, []byte("</log>\n")...)
 
-	return xmlEncoding, nil
+	var b bytes.Buffer
+	gz := gzip.NewWriter(&b)
+	_, err = gz.Write(xmlEncoding)
+	if err != nil {
+		log.Printf("Error while writing to gzip writer, error: %s", err)
+		return []byte{}, err
+	}
+
+	gz.Close()
+
+	return b.Bytes(), nil
 }
 
 func handle(ctx *context.Context, data []byte) *Response {
