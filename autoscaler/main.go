@@ -6,22 +6,18 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 )
-
-var RunningWorkerRecord map[string]bool
-var StoppedWorkerRecord []string
 
 func main() {
 
 	envs := Envs{}
 	setup(&envs)
 
-	RunningWorkerRecord = make(map[string]bool, envs.maxWorkers)
-	StoppedWorkerRecord = make([]string, envs.maxWorkers)
-	updates := make(chan ContainerDetail)
+	updates := make(chan string)
 
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -30,7 +26,7 @@ func main() {
 	}
 
 	// Call the createContainers function here and remove the ContainerList query
-
+	time.Sleep(time.Duration(envs.period) * 5 * time.Second)
 	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{})
 	if err != nil {
 		panic(err)
@@ -42,10 +38,10 @@ func main() {
 
 	for {
 		select {
-		case update := <-updates:
-			updateWorkerRecords(ctx, cli, envs, update.containerName, update.startContainer, updates)
+		case container := <-updates:
+			log.Printf("CPU Threshold exceeded for: %s", container)
 		default:
-			log.Println("Awaiting updates...")
+			continue
 		}
 	}
 }
@@ -62,11 +58,8 @@ func setup(envs *Envs) {
 
 	}
 
-	envs.cpu = envMap["CPU_ALLOCATION"]
 	envs.period = envMap["AUTOSCALER_CHECK_PERIOD"]
-	envs.cpuLower = envMap["CPU_LOWER_THRESHOLD"]
 	envs.cpuUpper = envMap["CPU_UPPER_THRESHOLD"]
 	envs.maxWorkers = envMap["MAX_WORKERS"]
-	envs.minWorkers = envMap["MIN_WORKERS"]
 
 }

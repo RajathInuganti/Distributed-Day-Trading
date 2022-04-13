@@ -17,27 +17,7 @@ func createContainers(ctx context.Context, cli *client.Client, envs Envs) []stri
 	return containers
 }
 
-func updateWorkerRecords(ctx context.Context, cli *client.Client, envs Envs, container string, start bool, updates chan ContainerDetail) {
-
-	var ID string
-
-	if start {
-		if len(RunningWorkerRecord) < envs.maxWorkers {
-			ID, StoppedWorkerRecord = StoppedWorkerRecord[0], StoppedWorkerRecord[1:]
-			RunningWorkerRecord[ID] = true
-			startContainer(ctx, cli, ID, envs, updates)
-			return
-		}
-	}
-
-	if len(StoppedWorkerRecord) > envs.minWorkers {
-		delete(RunningWorkerRecord, container)
-		StoppedWorkerRecord = append(StoppedWorkerRecord, container)
-		stopContainer(ctx, cli, container)
-	}
-}
-
-func startContainer(ctx context.Context, cli *client.Client, ID string, envs Envs, updates chan ContainerDetail) {
+func startContainer(ctx context.Context, cli *client.Client, ID string, envs Envs, updates chan string) {
 	if err := cli.ContainerStart(ctx, ID, types.ContainerStartOptions{}); err != nil {
 		panic(err)
 	}
