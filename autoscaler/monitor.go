@@ -4,20 +4,18 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log"
 	"time"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 )
 
-func monitor(ctx context.Context, cli *client.Client, ID string, envs Envs, updates chan ContainerDetail) {
+func monitor(ctx context.Context, cli *client.Client, ID string, envs Envs, updates chan string) {
 
 	stats := new(DockerContainerStats)
 
 	for range time.NewTicker(time.Duration(envs.period) * time.Second).C {
-
-		if _, ok := RunningWorkerRecord[ID]; !ok {
-			break
-		}
 
 		containerStats, err := cli.ContainerStats(ctx, ID, false)
 		if err != nil {
@@ -38,25 +36,23 @@ func monitor(ctx context.Context, cli *client.Client, ID string, envs Envs, upda
 		numberCpus := float32(stats.CPUStats.OnlineCpus)
 		CPUUsage := (float32(cpuDelta) / float32(systemCpuDelta)) * numberCpus * 100.0
 
-		CPUUsageActual := (CPUUsage / float32(envs.cpu)) * 100.0
-
-		if CPUUsageActual > float32(envs.cpuUpper) {
-
-			var update ContainerDetail
-			update.startContainer = true
-			updates <- update
-			continue
-
+		// CPUUsageActual := (CPUUsage / float32(envs.cpu)) * 100.0
+		var name string
+		containers, err := cli.ContainerList(ctx, types.ContainerListOptions{})
+		if err != nil {
+			panic(err)
 		}
 
-		if CPUUsageActual < float32(envs.cpuLower) {
+		for _, container := range containers {
+			if container.ID == ID {
+				name = container.Names[0]
+			}
+		}
 
-			var update ContainerDetail
-			update.startContainer = false
-			update.containerName = ID
-			updates <- update
-			continue
+		log.Printf("CPU Usage for %s: %f", name, CPUUsage)
 
+		if CPUUsage > float32(envs.cpuUpper) {
+			updates <- name
 		}
 	}
 }

@@ -2,19 +2,16 @@ version: "3.7"
 
 services:
 
-  # autoscaler:
-  #   build: autoscaler
-  #   container_name: autoscaler
-  #   restart: always
-  #   environment:
-  #     AUTOSCALER_CHECK_PERIOD: ${AUTOSCALER_CHECK_PERIOD}
-  #     CPU_ALLOCATION: ${CPU_ALLOCATION}
-  #     CPU_LOWER_THRESHOLD: ${CPU_LOWER_THRESHOLD}
-  #     CPU_UPPER_THRESHOLD: ${CPU_UPPER_THRESHOLD}
-  #     MAX_WORKERS: ${MAX_WORKERS}
-  #     MIN_WORKERS: ${MIN_WORKERS}
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock
+  autoscaler:
+    build: autoscaler
+    container_name: autoscaler
+    restart: always
+    environment:
+      AUTOSCALER_CHECK_PERIOD: ${AUTOSCALER_CHECK_PERIOD}
+      CPU_UPPER_THRESHOLD: ${CPU_UPPER_THRESHOLD}
+      MAX_WORKERS: ${MAX_WORKERS}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
   mongodb:
     image: mongo:latest
@@ -35,7 +32,7 @@ services:
       - rabbitmq
     deploy:
       mode: replicated
-      replicas: 1
+      replicas: 2
     networks:
       - txnetwork
     command: sh -c "/wait && /src/main"

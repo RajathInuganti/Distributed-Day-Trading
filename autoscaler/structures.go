@@ -3,17 +3,9 @@ package main
 import "time"
 
 type Envs struct {
-	cpu        int
 	period     int
-	cpuLower   int
 	cpuUpper   int
 	maxWorkers int
-	minWorkers int
-}
-
-type ContainerDetail struct {
-	startContainer bool
-	containerName  string
 }
 
 type DockerContainerStats struct {
