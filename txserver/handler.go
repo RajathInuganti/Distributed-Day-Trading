@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -44,11 +45,17 @@ var handlerMap = map[string]func(*context.Context, *Command) ([]byte, error){
 	"DUMPLOG":          dumplog,
 }
 
-func getTransactionNumber() int64 {
-	txMutex.Lock()
-	defer txMutex.Unlock()
+func getTransactionNumber(ctx *context.Context) int64 {
+	rdb.Incr(*ctx, "transNumber")
+	val, err := rdb.Get(*ctx, "transNumber").Result()
+	if err != nil {
+		panic(err)
+	}
 
-	transactionNumber += 1
+	transactionNumber, err := strconv.ParseInt(val, 10, 64)
+	if err != nil {
+		panic(err)
+	}
 	return transactionNumber
 }
 
@@ -69,7 +76,7 @@ func add(ctx *context.Context, command *Command) ([]byte, error) {
 
 	update := bson.M{"$set": bson.M{"balance": account.Balance}}
 
-	err = updateUserAccount(ctx, account.Username, update)
+	err = updateUserAccount(ctx, account.Username, update, account)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -106,7 +113,7 @@ func commit_buy(ctx *context.Context, command *Command) ([]byte, error) {
 			},
 		}
 
-		err = updateUserAccount(ctx, account.Username, update)
+		err = updateUserAccount(ctx, account.Username, update, account)
 		if err != nil {
 			return []byte{}, err
 		}
@@ -131,7 +138,7 @@ func cancel_buy(ctx *context.Context, command *Command) ([]byte, error) {
 
 	update := bson.M{"$set": bson.D{primitive.E{Key: "recentSell", Value: account.RecentSell}}}
 
-	err = updateUserAccount(ctx, account.Username, update)
+	err = updateUserAccount(ctx, account.Username, update, account)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -171,7 +178,7 @@ func commit_sell(ctx *context.Context, command *Command) ([]byte, error) {
 			},
 		}
 
-		err = updateUserAccount(ctx, account.Username, update)
+		err = updateUserAccount(ctx, account.Username, update, account)
 		if err != nil {
 			return []byte{}, err
 		}
@@ -196,7 +203,7 @@ func cancel_sell(ctx *context.Context, command *Command) ([]byte, error) {
 
 	update := bson.M{"$set": bson.D{primitive.E{Key: "recentSell", Value: account.RecentSell}}}
 
-	err = updateUserAccount(ctx, account.Username, update)
+	err = updateUserAccount(ctx, account.Username, update, account)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -223,7 +230,7 @@ func buy(ctx *context.Context, command *Command) ([]byte, error) {
 			"recentBuy": account.RecentBuy,
 		}}
 
-	err = updateUserAccount(ctx, account.Username, update)
+	err = updateUserAccount(ctx, account.Username, update, account)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -245,7 +252,7 @@ func sell(ctx *context.Context, command *Command) ([]byte, error) {
 
 		update := bson.M{"$set": bson.D{primitive.E{Key: "recentSell", Value: account.RecentSell}}}
 
-		err = updateUserAccount(ctx, account.Username, update)
+		err = updateUserAccount(ctx, account.Username, update, account)
 		if err != nil {
 			return []byte{}, err
 		}
@@ -280,7 +287,7 @@ func set_buy_amount(ctx *context.Context, command *Command) ([]byte, error) {
 		},
 		}
 
-		err = updateUserAccount(ctx, command.Username, update)
+		err = updateUserAccount(ctx, command.Username, update, account)
 		if err != nil {
 			return []byte{}, err
 		}
@@ -313,7 +320,7 @@ func set_buy_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 				"buyTriggers": account.BuyTriggers,
 			},
 		}
-		err := updateUserAccount(ctx, command.Username, update)
+		err := updateUserAccount(ctx, command.Username, update, account)
 		if err != nil {
 			log.Printf("Error updating account")
 		}
@@ -350,7 +357,7 @@ func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
 		},
 		}
 
-		err = updateUserAccount(ctx, command.Username, update)
+		err = updateUserAccount(ctx, command.Username, update, account)
 		if err != nil {
 			return []byte{}, err
 		}
@@ -384,7 +391,7 @@ func set_sell_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 			},
 		}
 
-		err := updateUserAccount(ctx, command.Username, update)
+		err := updateUserAccount(ctx, command.Username, update, account)
 		if err != nil {
 			log.Printf("Error updating account")
 		}
@@ -443,7 +450,7 @@ func cancel_set_buy(ctx *context.Context, command *Command) ([]byte, error) {
 		},
 	}
 
-	err = updateUserAccount(ctx, account.Username, update)
+	err = updateUserAccount(ctx, account.Username, update, account)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -478,7 +485,7 @@ func cancel_set_sell(ctx *context.Context, command *Command) ([]byte, error) {
 		},
 	}
 
-	err = updateUserAccount(ctx, account.Username, update)
+	err = updateUserAccount(ctx, account.Username, update, account)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -601,7 +608,7 @@ func handle(ctx *context.Context, data []byte) *Response {
 
 	log.Printf("Received command: %+v", command)
 	response := &Response{}
-	command.TransactionNumber = getTransactionNumber()
+	command.TransactionNumber = getTransactionNumber(ctx)
 	err = verifyAndParseRequestData(command)
 	if err != nil {
 		response.Error = err.Error()

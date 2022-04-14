@@ -2,46 +2,65 @@ package main
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 )
 
-func createContainers(ctx context.Context, cli *client.Client, envs Envs) []string {
+func createContainers(ctx context.Context, cli *client.Client, networkID string, envs Envs) []string {
 
 	containers := make([]string, envs.maxWorkers)
-	for i := 0; i < envs.maxWorkers; i++ {
-		// Create the maximum number of containers allowed. Start and stop them as necessary
-		// Yet to be implemented as the transaction worker needs to be implemented as well
+	for workerNum := 0; workerNum < envs.maxWorkers; workerNum++ {
+
+		hostConfig := &container.HostConfig{
+			RestartPolicy: container.RestartPolicy{
+				Name: "always",
+			},
+		}
+
+		config := &container.Config{
+			Image: "txserver",
+			Cmd:   []string{"sh", "-c", "/wait && /src/main"},
+			Env: []string{
+				"MONGODB_URI=mongodb://mongodb:27017/?maxPoolSize=20&w=majority",
+				"WAIT_HOSTS=rabbitmq:5672, mongodb:27017",
+				"WAIT_HOSTS_TIMEOUT=5",
+				"WAIT_SLEEP_INTERVAL=5",
+				"WAIT_HOST_CONNECT_TIMEOUT=5",
+				"WAIT_BEFORE_HOSTS=5",
+			},
+		}
+
+		container, err := cli.ContainerCreate(ctx, config, hostConfig, nil, nil, "Autoscaled_txserver_instance_"+strconv.Itoa(workerNum))
+		if err != nil {
+			panic(err)
+		}
+		err = cli.NetworkConnect(ctx, networkID, container.ID, &network.EndpointSettings{})
+		if err != nil {
+			panic(err)
+		}
+
+		containers[workerNum] = container.ID
 	}
 	return containers
 }
 
-func updateWorkerRecords(ctx context.Context, cli *client.Client, envs Envs, container string, start bool, updates chan ContainerDetail) {
+func startContainer(ctx context.Context, cli *client.Client, containerList []string, envs Envs, updates chan string) []string {
 
-	var ID string
-
-	if start {
-		if len(RunningWorkerRecord) < envs.maxWorkers {
-			ID, StoppedWorkerRecord = StoppedWorkerRecord[0], StoppedWorkerRecord[1:]
-			RunningWorkerRecord[ID] = true
-			startContainer(ctx, cli, ID, envs, updates)
-			return
-		}
+	if len(containerList) == 0 {
+		return containerList
 	}
 
-	if len(StoppedWorkerRecord) > envs.minWorkers {
-		delete(RunningWorkerRecord, container)
-		StoppedWorkerRecord = append(StoppedWorkerRecord, container)
-		stopContainer(ctx, cli, container)
-	}
-}
-
-func startContainer(ctx context.Context, cli *client.Client, ID string, envs Envs, updates chan ContainerDetail) {
-	if err := cli.ContainerStart(ctx, ID, types.ContainerStartOptions{}); err != nil {
+	containerID, containerList := containerList[0], containerList[1:]
+	if err := cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{}); err != nil {
 		panic(err)
 	}
-	go monitor(ctx, cli, ID, envs, updates)
+
+	go monitor(ctx, cli, containerID, envs, updates)
+	return containerList
 }
 
 func stopContainer(ctx context.Context, cli *client.Client, ID string) {

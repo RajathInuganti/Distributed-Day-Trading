@@ -246,7 +246,7 @@ func update_account(ctx *context.Context, trigger string, stock string, username
 			}
 		}
 
-		err = updateUserAccount(ctx, username, update)
+		err = updateUserAccount(ctx, username, update, account)
 		if err != nil {
 			log.Printf("Error updating account")
 		}
