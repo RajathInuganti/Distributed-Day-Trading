@@ -413,8 +413,7 @@ func quote(ctx *context.Context, command *Command) ([]byte, error) {
 
 	go logQuoteServerEvent(ctx, getHostname(), cryptoKey, timestamp, price, command)
 
-	responseString := fmt.Sprintf("\nstock %s\n: price %.2f\n\n", command.Stock, price)
-	log.Printf("Quote handler response: %s\n", responseString)
+	responseString := fmt.Sprintf("stock %s: price %.2f", command.Stock, price)
 	return []byte(responseString), nil
 }
 
