@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -44,11 +45,17 @@ var handlerMap = map[string]func(*context.Context, *Command) ([]byte, error){
 	"DUMPLOG":          dumplog,
 }
 
-func getTransactionNumber() int64 {
-	txMutex.Lock()
-	defer txMutex.Unlock()
+func getTransactionNumber(ctx *context.Context) int64 {
+	rdb.Incr(*ctx, "transNumber")
+	val, err := rdb.Get(*ctx, "transNumber").Result()
+	if err != nil {
+		panic(err)
+	}
 
-	transactionNumber += 1
+	transactionNumber, err := strconv.ParseInt(val, 10, 64)
+	if err != nil {
+		panic(err)
+	}
 	return transactionNumber
 }
 
@@ -602,7 +609,7 @@ func handle(ctx *context.Context, data []byte) *Response {
 
 	log.Printf("Received command: %+v", command)
 	response := &Response{}
-	command.TransactionNumber = getTransactionNumber()
+	command.TransactionNumber = getTransactionNumber(ctx)
 	err = verifyAndParseRequestData(command)
 	if err != nil {
 		response.Error = err.Error()
