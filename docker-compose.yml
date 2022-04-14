@@ -78,7 +78,7 @@ services:
        - txnetwork
 
   redis_db:
-    image: redis:latest
+    image: redis:alpine
     ports:
       - 6379:6379
     networks:
