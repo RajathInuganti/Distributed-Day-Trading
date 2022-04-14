@@ -69,7 +69,7 @@ func add(ctx *context.Context, command *Command) ([]byte, error) {
 
 	update := bson.M{"$set": bson.M{"balance": account.Balance}}
 
-	err = updateUserAccount(ctx, account.Username, update)
+	err = updateUserAccount(ctx, account.Username, update, account)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -106,7 +106,7 @@ func commit_buy(ctx *context.Context, command *Command) ([]byte, error) {
 			},
 		}
 
-		err = updateUserAccount(ctx, account.Username, update)
+		err = updateUserAccount(ctx, account.Username, update, account)
 		if err != nil {
 			return []byte{}, err
 		}
@@ -131,7 +131,7 @@ func cancel_buy(ctx *context.Context, command *Command) ([]byte, error) {
 
 	update := bson.M{"$set": bson.D{primitive.E{Key: "recentSell", Value: account.RecentSell}}}
 
-	err = updateUserAccount(ctx, account.Username, update)
+	err = updateUserAccount(ctx, account.Username, update, account)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -171,7 +171,7 @@ func commit_sell(ctx *context.Context, command *Command) ([]byte, error) {
 			},
 		}
 
-		err = updateUserAccount(ctx, account.Username, update)
+		err = updateUserAccount(ctx, account.Username, update, account)
 		if err != nil {
 			return []byte{}, err
 		}
@@ -196,7 +196,7 @@ func cancel_sell(ctx *context.Context, command *Command) ([]byte, error) {
 
 	update := bson.M{"$set": bson.D{primitive.E{Key: "recentSell", Value: account.RecentSell}}}
 
-	err = updateUserAccount(ctx, account.Username, update)
+	err = updateUserAccount(ctx, account.Username, update, account)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -223,7 +223,7 @@ func buy(ctx *context.Context, command *Command) ([]byte, error) {
 			"recentBuy": account.RecentBuy,
 		}}
 
-	err = updateUserAccount(ctx, account.Username, update)
+	err = updateUserAccount(ctx, account.Username, update, account)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -245,7 +245,7 @@ func sell(ctx *context.Context, command *Command) ([]byte, error) {
 
 		update := bson.M{"$set": bson.D{primitive.E{Key: "recentSell", Value: account.RecentSell}}}
 
-		err = updateUserAccount(ctx, account.Username, update)
+		err = updateUserAccount(ctx, account.Username, update, account)
 		if err != nil {
 			return []byte{}, err
 		}
@@ -280,7 +280,7 @@ func set_buy_amount(ctx *context.Context, command *Command) ([]byte, error) {
 		},
 		}
 
-		err = updateUserAccount(ctx, command.Username, update)
+		err = updateUserAccount(ctx, command.Username, update, account)
 		if err != nil {
 			return []byte{}, err
 		}
@@ -313,7 +313,7 @@ func set_buy_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 				"buyTriggers": account.BuyTriggers,
 			},
 		}
-		err := updateUserAccount(ctx, command.Username, update)
+		err := updateUserAccount(ctx, command.Username, update, account)
 		if err != nil {
 			log.Printf("Error updating account")
 		}
@@ -350,7 +350,7 @@ func set_sell_amount(ctx *context.Context, command *Command) ([]byte, error) {
 		},
 		}
 
-		err = updateUserAccount(ctx, command.Username, update)
+		err = updateUserAccount(ctx, command.Username, update, account)
 		if err != nil {
 			return []byte{}, err
 		}
@@ -384,7 +384,7 @@ func set_sell_trigger(ctx *context.Context, command *Command) ([]byte, error) {
 			},
 		}
 
-		err := updateUserAccount(ctx, command.Username, update)
+		err := updateUserAccount(ctx, command.Username, update, account)
 		if err != nil {
 			log.Printf("Error updating account")
 		}
@@ -444,7 +444,7 @@ func cancel_set_buy(ctx *context.Context, command *Command) ([]byte, error) {
 		},
 	}
 
-	err = updateUserAccount(ctx, account.Username, update)
+	err = updateUserAccount(ctx, account.Username, update, account)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -479,7 +479,7 @@ func cancel_set_sell(ctx *context.Context, command *Command) ([]byte, error) {
 		},
 	}
 
-	err = updateUserAccount(ctx, account.Username, update)
+	err = updateUserAccount(ctx, account.Username, update, account)
 	if err != nil {
 		return []byte{}, err
 	}

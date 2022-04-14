@@ -77,7 +77,13 @@ services:
     networks:
        - txnetwork
 
-
+  redis_db:
+    image: redis:latest
+    ports:
+      - 6379:6379
+    networks:
+      - txnetwork
+  
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: rabbitmq
@@ -87,6 +93,9 @@ services:
       - 15672:15672
     networks:
       - txnetwork
+  
+
+
 
 
 # the network's driver needs to be changed to 
