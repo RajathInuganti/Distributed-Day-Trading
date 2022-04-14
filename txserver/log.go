@@ -80,23 +80,6 @@ func logErrorEvent(ctx *context.Context, server, errorMsg string, command *Comma
 	insertEventToDB(ctx, event)
 }
 
-func logDebugEvent(ctx *context.Context, server, debugMsg string, command *Command) {
-	data := &DebugEvent{
-		Timestamp:      time.Now().Unix() * 1000,
-		Server:         server,
-		TransactionNum: command.TransactionNumber,
-		Command:        command.Command,
-		Username:       command.Username,
-		StockSymbol:    command.Stock,
-		Filename:       command.Filename,
-		DebugMessage:   debugMsg,
-		Funds:          command.Amount,
-	}
-
-	event := &Event{EventType: EventDebug, Data: data}
-	insertEventToDB(ctx, event)
-}
-
 func insertEventToDB(ctx *context.Context, event *Event) {
 	eventsCollection := client.Database("test").Collection("events")
 
