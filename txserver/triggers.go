@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"os"
-	"strconv"
 
 	"github.com/emirpasic/gods/maps/treemap"
 	"github.com/emirpasic/gods/sets/hashset"
@@ -61,7 +60,7 @@ type poll struct {
 	sell_updates          chan bool
 }
 
-func (p *poll) buy_poll() []byte {
+func (p *poll) buy_poll(cmd *Command) []byte {
 
 	if p.buyPollingInProgress {
 		poller.run_buy_polling = false
@@ -71,12 +70,12 @@ func (p *poll) buy_poll() []byte {
 
 	p.buyPollingInProgress = true
 	poller.buy_updates = make(chan bool)
-	go trigger_polling("BUY")
+	go trigger_polling("BUY", cmd)
 	poller.buy_updates <- true
 	return []byte("Buy trigger polling initiated")
 }
 
-func (p *poll) sell_poll() []byte {
+func (p *poll) sell_poll(cmd *Command) []byte {
 
 	if p.sellPollingInProgress {
 		poller.run_sell_polling = false
@@ -86,7 +85,7 @@ func (p *poll) sell_poll() []byte {
 
 	p.sellPollingInProgress = true
 	poller.sell_updates = make(chan bool)
-	go trigger_polling("SELL")
+	go trigger_polling("SELL", cmd)
 	poller.sell_updates <- true
 	return []byte("Sell trigger polling initiated")
 }
@@ -99,14 +98,14 @@ func trigger(context *context.Context, cmd *Command, adjustment bool, price floa
 	previous_price = price
 
 	if trigger == "BUY" {
-		return poller.buy_poll()
+		return poller.buy_poll(cmd)
 	}
 
-	return poller.sell_poll()
+	return poller.sell_poll(cmd)
 
 }
 
-func trigger_polling(trigger string) {
+func trigger_polling(trigger string, cmd *Command) {
 
 	var run_polling *bool
 	var updates chan bool
@@ -177,10 +176,15 @@ func trigger_polling(trigger string) {
 				for err != nil {
 					quote, err = get_quote(stock, os.Getenv("HOSTNAME"))
 				}
-				quoted_price, err := strconv.ParseFloat(quote[0], 64)
+
+				quoted_price, timestamp, cryptokey, err := parseQuote(quote)
 				if err != nil {
-					log.Println("error parsing string")
+					log.Println(err)
+					continue
 				}
+
+				cmd.TransactionNumber = getTransactionNumber(ctx)
+				logQuoteServerEvent(ctx, getHostname(), cryptokey, timestamp, quoted_price, cmd)
 
 				price_wait_list := (*list)[stock]
 				priceIterator := price_wait_list.Iterator()
@@ -195,7 +199,7 @@ func trigger_polling(trigger string) {
 					Iuser_list, _ := price_wait_list.Get(price)
 					user_list := Iuser_list.(*hashset.Set)
 					usernames := user_list.Values()
-					go update_account(ctx, trigger, stock, usernames)
+					go update_account(ctx, trigger, stock, usernames, cmd)
 
 					price_wait_list.Remove(price)
 					(*list)[stock] = price_wait_list
@@ -209,7 +213,7 @@ func trigger_polling(trigger string) {
 	}
 }
 
-func update_account(ctx *context.Context, trigger string, stock string, usernames []interface{}) {
+func update_account(ctx *context.Context, trigger string, stock string, usernames []interface{}, cmd *Command) {
 
 	for index := range usernames {
 		username := usernames[index].(string)
@@ -232,6 +236,8 @@ func update_account(ctx *context.Context, trigger string, stock string, username
 					"stocks":      account.Stocks,
 				},
 			}
+
+			cmd.Amount = account.BuyAmounts[stock]
 		} else {
 			account.Balance += account.SellAmounts[stock]
 			delete(account.SellAmounts, stock)
@@ -244,6 +250,8 @@ func update_account(ctx *context.Context, trigger string, stock string, username
 					"sellTriggers": account.SellTriggers,
 				},
 			}
+
+			cmd.Amount = account.SellAmounts[stock]
 		}
 
 		err = updateUserAccount(ctx, username, update, account)
@@ -252,5 +260,10 @@ func update_account(ctx *context.Context, trigger string, stock string, username
 		}
 
 		log.Println("trigger successfully executed")
+
+		cmd.Username = usernames[index].(string)
+		cmd.TransactionNumber = getTransactionNumber(ctx)
+		cmd.Stock = stock
+		logSystemEvent(ctx, getHostname(), cmd)
 	}
 }
