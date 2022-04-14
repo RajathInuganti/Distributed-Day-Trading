@@ -17,6 +17,7 @@ import (
 	//"os"
 	//"strings"
 
+	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -61,7 +62,7 @@ func getTransactionNumber(ctx *context.Context) int64 {
 
 func add(ctx *context.Context, command *Command) ([]byte, error) {
 	account, err := find_account(ctx, command.Username)
-	if err == mongo.ErrNoDocuments {
+	if err == mongo.ErrNoDocuments || err == redis.Nil {
 		account, err = CreateUserAccount(ctx, command.Username)
 		if err != nil {
 			return nil, err
@@ -419,6 +420,7 @@ func quote(ctx *context.Context, command *Command) ([]byte, error) {
 	}
 
 	log.Printf("generated cryptokey: %s", cryptoKey)
+	log.Printf("Cryptokey Length: %d", len(cryptoKey))
 	go logQuoteServerEvent(ctx, getHostname(), cryptoKey, timestamp, price, command)
 
 	responseString := fmt.Sprintf("stock %s: price %.2f", command.Stock, price)
