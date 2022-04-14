@@ -3,6 +3,7 @@ package main
 import "time"
 
 type Envs struct {
+	wait       int
 	period     int
 	cpuUpper   int
 	maxWorkers int
