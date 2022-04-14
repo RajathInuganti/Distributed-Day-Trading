@@ -143,6 +143,8 @@ func (e *Event) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
 		return err
 	}
 
+	log.Printf("Event: %+v", e.Data)
+
 	return nil
 }
 

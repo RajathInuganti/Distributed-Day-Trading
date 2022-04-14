@@ -64,6 +64,7 @@ func get_quote(stock string, username string) ([]string, error) {
 		return nil, err
 	}
 
+	log.Printf("Received quote: %s", result)
 	return strings.Split(string(result), ","), nil
 
 }

@@ -71,6 +71,12 @@ func consume(ctx *context.Context, ch *amqp.Channel) {
 			})
 		failOnError("Failed to publish a message", err)
 
+		err = json.Unmarshal(message.Body, &response)
+		if err != nil {
+			log.Printf("Error while unmarshalling: %+v\n", err)
+		}
+
+		log.Printf("Unmarshalled response: %s\n", string(response.Data))
 		err = message.Ack(false)
 		failOnError("Failed to Acknowledge message", err)
 	}

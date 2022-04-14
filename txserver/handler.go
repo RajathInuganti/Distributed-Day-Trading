@@ -411,10 +411,10 @@ func quote(ctx *context.Context, command *Command) ([]byte, error) {
 		return nil, fmt.Errorf("failed to get quote for %s, error: %s", command.Username, err.Error())
 	}
 
+	log.Printf("generated cryptokey: %s", cryptoKey)
 	go logQuoteServerEvent(ctx, getHostname(), cryptoKey, timestamp, price, command)
 
-	responseString := fmt.Sprintf("\nstock %s\n: price %.2f\n\n", command.Stock, price)
-	log.Printf("Quote handler response: %s\n", responseString)
+	responseString := fmt.Sprintf("stock %s: price %.2f", command.Stock, price)
 	return []byte(responseString), nil
 }
 
@@ -585,6 +585,8 @@ func dumplog(ctx *context.Context, command *Command) ([]byte, error) {
 		log.Printf("Error while closing gzip writer, error: %s", err)
 		return []byte{}, err
 	}
+
+	log.Printf("XML events: %s", string(xmlEncoding))
 
 	return b.Bytes(), nil
 }
