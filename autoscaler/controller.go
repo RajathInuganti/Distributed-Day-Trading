@@ -34,7 +34,7 @@ func createContainers(ctx context.Context, cli *client.Client, networkID string,
 			},
 		}
 
-		container, err := cli.ContainerCreate(ctx, config, hostConfig, nil, nil, "txserver_"+strconv.Itoa(workerNum))
+		container, err := cli.ContainerCreate(ctx, config, hostConfig, nil, nil, "Autoscaled_txserver_instance_"+strconv.Itoa(workerNum))
 		if err != nil {
 			panic(err)
 		}
