@@ -13,7 +13,19 @@ import (
 
 func monitor(ctx context.Context, cli *client.Client, ID string, envs Envs, updates chan string) {
 
+	var name string
 	stats := new(DockerContainerStats)
+
+	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{})
+	if err != nil {
+		panic(err)
+	}
+
+	for _, container := range containers {
+		if container.ID == ID {
+			name = container.Names[0]
+		}
+	}
 
 	for range time.NewTicker(time.Duration(envs.period) * time.Second).C {
 
@@ -36,22 +48,8 @@ func monitor(ctx context.Context, cli *client.Client, ID string, envs Envs, upda
 		numberCpus := float32(stats.CPUStats.OnlineCpus)
 		CPUUsage := (float32(cpuDelta) / float32(systemCpuDelta)) * numberCpus * 100.0
 
-		// CPUUsageActual := (CPUUsage / float32(envs.cpu)) * 100.0
-		var name string
-		containers, err := cli.ContainerList(ctx, types.ContainerListOptions{})
-		if err != nil {
-			panic(err)
-		}
-
-		for _, container := range containers {
-			if container.ID == ID {
-				name = container.Names[0]
-			}
-		}
-
-		log.Printf("CPU Usage for %s: %f", name, CPUUsage)
-
 		if CPUUsage > float32(envs.cpuUpper) {
+			log.Printf("CPU Usage for %s: %f", name, CPUUsage)
 			updates <- name
 		}
 	}

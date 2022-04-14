@@ -17,6 +17,7 @@ func main() {
 	envs := Envs{}
 	setup(&envs)
 
+	var networkID string
 	updates := make(chan string)
 
 	ctx := context.Background()
@@ -25,21 +26,33 @@ func main() {
 		panic(err)
 	}
 
-	// Call the createContainers function here and remove the ContainerList query
-	time.Sleep(time.Duration(envs.period) * 5 * time.Second)
+	time.Sleep(time.Duration(envs.wait) * time.Second)
 	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{})
 	if err != nil {
 		panic(err)
 	}
 
+	networks, _ := cli.NetworkList(ctx, types.NetworkListOptions{})
+	for _, network := range networks {
+		if strings.Contains(network.Name, "txnetwork") {
+			networkID = network.ID
+			break
+		}
+	}
+
+	containerList := createContainers(ctx, cli, networkID, envs)
+
 	for _, container := range containers {
-		go monitor(ctx, cli, container.ID, envs, updates)
+		if container.Image == "txserver" {
+			go monitor(ctx, cli, container.ID, envs, updates)
+		}
 	}
 
 	for {
 		select {
 		case container := <-updates:
 			log.Printf("CPU Threshold exceeded for: %s", container)
+			containerList = startContainer(ctx, cli, containerList, envs, updates)
 		default:
 			continue
 		}
@@ -58,6 +71,7 @@ func setup(envs *Envs) {
 
 	}
 
+	envs.wait = envMap["WAIT_PERIOD"]
 	envs.period = envMap["AUTOSCALER_CHECK_PERIOD"]
 	envs.cpuUpper = envMap["CPU_UPPER_THRESHOLD"]
 	envs.maxWorkers = envMap["MAX_WORKERS"]
