@@ -130,7 +130,7 @@ func setupRedis(ctx context.Context) {
 		Password: "",
 		DB:       0,
 	})
-	err := rdb.Set(ctx, "key", "value", 0).Err()
+	err := rdb.Set(ctx, "transNumber", 0, 0).Err()
 	if err != nil {
 		panic(err)
 	}
