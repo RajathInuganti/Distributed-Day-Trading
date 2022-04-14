@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/streadway/amqp"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -15,6 +16,7 @@ import (
 
 // a global client that can be used across the package
 var client *mongo.Client
+var rdb *redis.Client
 
 func failOnError(message string, err error) {
 	if err != nil {
@@ -87,6 +89,7 @@ func main() {
 	var cancel context.CancelFunc
 	ctx := context.Background()
 	client, cancel = setupDB(ctx)
+	setupRedis(ctx)
 	consume(&ctx, ch)
 	cancel()
 }
@@ -125,4 +128,16 @@ func setupDB(ctx context.Context) (*mongo.Client, context.CancelFunc) {
 	_ = mongoClient.Database("test").Collection("Transactions")
 
 	return mongoClient, cancel
+}
+
+func setupRedis(ctx context.Context) {
+	rdb = redis.NewClient(&redis.Options{
+		Addr:     "redis_db:6379",
+		Password: "",
+		DB:       0,
+	})
+	err := rdb.Set(ctx, "transNumber", 0, 0).Err()
+	if err != nil {
+		panic(err)
+	}
 }
