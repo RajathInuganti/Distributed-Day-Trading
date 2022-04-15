@@ -37,7 +37,23 @@ func updateUserAccount(ctx *context.Context, username string, update primitive.M
 		return nil
 	}
 
-	return errors.New("account update unsuccessful")
+	if result.MatchedCount == 0 {
+		log.Printf("Found %d accounts with username: %s, inserting most recent version of useraccount into mongodb", result.MatchedCount, username)
+		bsonBytes, err := bson.Marshal(account)
+		if err != nil {
+			log.Printf("Error marshalling account with username: %s, error: %s", username, err.Error())
+			return nil
+		}
+
+		accountsCollection := client.Database("test").Collection("Accounts")
+		_, err = accountsCollection.InsertOne(*ctx, bsonBytes)
+		if err != nil {
+			log.Printf("Error inserting account with username: %s, error: %s", username, err.Error())
+			return err
+		}
+	}
+
+	return nil
 }
 
 func find_account(ctx *context.Context, username string) (*UserAccount, error) {
